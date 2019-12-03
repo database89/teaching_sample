@@ -1,0 +1,250 @@
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\SweaveOpts{concordance=FALSE}
+% !Rnw weave = knitr
+\section{Autoregressive and Moving average models}
+\subsection*{Sample ACF}
+\noindent\textbf{Sample Autocorrelation Function (ACF)}: The sample autocorrelation function (ACF) for a series gives correlations between the series $x_t$ and lagged values of the series for lags of 1, 2, 3, and so on.  The lagged values can be written as $x_{t-1}$, $x_{t-2}$, $x_{t-3}$,and so on.  The ACF gives correlations between $x_t$ and $x_{t-1}$, $x_t$ and $x_{t-2}$, and so on.
+\subsubsection*{Stationary Series}
+
+As a preliminary, we define an important concept, that of a stationary series.  For an ACF to make sense, the series must be a weakly stationary series.  This means that the autocorrelation for any particular lag is the same regardless of where we are in time.
+
+\noindent\textbf{Definition}:  A series $x_t$ is said to be (weakly) stationary if it satisfies the following properties:
+\begin{itemize}
+\item The mean $E(x_t)$ is the same for all $t$.
+\item The variance of $x_t$ is the same for all $t$.
+\item The covariance (and also correlation) between $x_t$ and $x_{t-h}$ is the same for all $t$.
+\end{itemize}
+
+\noindent \textbf{Definition}: Let $x_t$ denote the value of a time series at time $t$.  The ACF of the series gives correlations between $x_t$ and $x_{t-h}$ for $h = 1, 2, 3$, etc.  Theoretically, the autocorrelation between $x_t$ and $x_{t-h}$ equals
+\[\frac{\mbox{covariance}(x_t,x_{t-h})}{\mbox{Std.Dev.}(x_t)\mbox{Std.Dev.}(x_{t-h})} = \frac{\mbox{covariance}(x_t,x_{t-h})}{\mbox{Variance}(x_t)}\]
+
+The denominator in the second formula occurs because the standard deviation of a stationary series is the same at all times.
+
+The last property of a weakly stationary series says that the theoretical value of an autocorrelation of particular lag is the same across the whole series.  An interesting property of a stationary series is that theoretically it has the same structure forwards as it does backwards.
+
+Many stationary series have recognizable ACF patterns.  Most series that we encounter in practice, however, are not stationary.  A continual upward trend, for example, is a violation of the requirement that the mean is the same for all t.  Distinct seasonal patterns also violate that requirement. 
+
+\subsubsection*{The First-order Autoregression Model}
+
+We'll now look at theoretical properties of the AR(1) model.  The 1st order autoregression model is denoted as AR(1).  In this model, the value of $x$ at time $t$ is a linear function of the value of $x$ at time $t–1$.  The algebraic expression of the model is as follows:
+\[x_t = \delta+\phi_1x_{t-1}+\omega_t\]
+
+\noindent Assumptions:
+\begin{itemize}
+  \item $\omega_t \overset{iid}{\sim} N(0, \sigma_{\omega}^2)$, meaning that the errors are independently distributed with a normal distribution that has mean 0 and constant variance.
+  \item Properties of the errors $\omega_t$ are independent of $x_t$.
+  \item The series $x_1, x_2, \dots, $ is (weakly) stationary.  A requirement for a stationary AR(1) is that $|\phi_1|<1$. We'll see why below.
+\end{itemize}
+
+
+\noindent \textbf{Properties of AR(1)}
+Formulas for the mean, variance, and ACF for a time series process with an AR(1) model follow.
+\begin{itemize}
+  \item The (theorectical) mean of $x_t$ is \[\mu = \frac{\delta}{1-\phi_1}\]
+  \item The variance is \[\mbox{Var}(x_t) = \frac{\sigma_{\omega}^2}{1-\phi_1^2}\]
+  \item The correlation between observations $h$ time periods apart is \[\rho_h = \phi_1^h\]
+\end{itemize}
+
+\vspace*{3in}
+
+
+\noindent \textbf{Pattern of ACF for AR(1) Model}
+The ACF property defines a distinct pattern for the autocorrelations.  For a positive value of $\phi_1$, the ACF exponentially decreases to 0 as the lag $h$ increases.  For negative $\phi_1$, the ACF also exponentially decays to 0 as the lag increases, but the algebraic signs for the autocorrelations alternate between positive and negative.
+
+Following is the ACF of an AR(1) with $\phi_1=0.6$, for the first 20 lags.  Note the tapering pattern.
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+library(astsa)
+y = ARMAacf(ar = c(0.6), lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for AR(1) with $\phi$ = 0.6}
+\label{fig:ARacf1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+y = ARMAacf(ar = c(-0.7), lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for AR(1) with $\phi$ = -0.7}
+\label{fig:ARacf2}
+\end{figure}
+\newpage
+
+\subsubsection*{The $p$th-order Autoregression Model}
+The algebraic expression of the model is as follows:
+\[
+x_t = \delta+ \phi_1x_{t-1}+\phi_2x_{t-2} + \ldots +\phi_px_{t-p}+\omega_t
+\]
+\noindent Assumptions:
+\begin{itemize}
+  \item $\omega_t \overset{iid}{\sim} N(0, \sigma_{\omega}^2)$, meaning that the errors are independently distributed with a normal distribution that has mean 0 and constant variance.
+  \item Properties of the errors $\omega_t$ are independent of $x_t$.
+  \item The series $x_1, x_2, \dots, $ is (weakly) stationary.  A requirement for a stationary AR(p) is that all roots of polynomial function (characteristic function) $\phi(z) = 1-\phi_1(z)-\phi_2z^2-\dots-\phi_p z^p$ exceed 1 in absolute value (or in modulus if the roots are complex).
+\end{itemize}
+
+\noindent \textbf{Properties of AR(2)}
+\begin{itemize}
+  \item The (theorectical) mean of $x_t$ is \[\mu = \frac{\delta}{1-\phi_1-\phi_2}\]
+  \item The variance is \[\mbox{Var}(x_t) = \frac{1-\phi_2}{1+\phi_2}\frac{\sigma_{\omega}^2}{(1-\phi_2)^2-\phi_1^2}\]
+  \item The correlation between observations $h$ time periods apart is $\rho_k$
+  \begin{itemize}
+  \item $\left(1+\frac{1+\phi_2}{1-\phi_2}k\right) \left(\frac{\phi_1}{2}\right)^k$ if the roots of $\phi(z)$ are equal.
+  \item $R^k \frac{sin(\Theta k+\Phi)}{sin(\Phi)}$ where $R$ = $\sqrt{-\phi_2}$, $\Theta$ and $\Phi$ are defined by $cos(\Theta) = \phi_1/(2\sqrt{-\phi_2})$ and $tan(\Phi) =\frac{1+\phi_2}{1-\phi_2}$ if the roots of $\phi(z)$ are complex.
+  \item $\frac{(1-G_2^2)G_1^{k+1}-(1-G_1^2)G_2^{k+1}}{(G_1-G_2)(1+G_1G_2)}$ where $G_1 = \frac{\phi_1-\sqrt{\phi_1^2+4\phi_2}}{2}$ and $G_2 = \frac{\phi_2+\sqrt{\phi_1^2+4\phi_2}}{2}$ if the roots of $\phi(z)$ are different.
+  \end{itemize}
+\end{itemize}
+
+\vspace*{3in}
+
+
+Following are the ACF of AR(2) series for the first 20 lags.  In all cases $\rho_k$ dies out exponentially fast as the lag $k$ increases. In the case of complex roots for $\phi(z)$, $\rho_k$ displays a dampled sine wave behavior with dampling factor $R$, frequency $\Theta$, and phase $\Phi$.
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+library(astsa)
+y = ARMAacf(ar = c(0.5, 0.25), lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for AR(2) with $\phi_1$ = 0.5, $\phi_2$ = 0.25}
+\label{fig:ARacf3}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+y = ARMAacf(ar = c(1.5, -0.75), lag.max = 20)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for AR(2) with $\phi_1$ = 1.5, $\phi_2$ = -0.75}
+\label{fig:ARacf4}
+\end{figure}
+\newpage
+\subsection*{Sample ACF and Moving average models}
+A moving average term in a time series model is a past error (multiplied by a coefficient).
+Let $\omega_t \overset{iid}{\sim} N(0, \sigma_{\omega}^2)$, meaning that the errors are independently distributed with a normal distribution that has mean 0 and constant variance.
+\noindent\textbf{$1^{st}$ order moving average model, denoted by MA(1)}: \[x_t = \mu+\omega_t+\theta_1\omega_{t-1}.\]
+ 
+\noindent\textbf{$2^{nd}$ order moving average model, denoted by MA(2)}: \[x_t = \mu+\omega_t+\theta_1\omega_{t-1}+\theta_2\omega_{t-2}.\]
+ 
+ \noindent\textbf{$q^{th}$ order moving average model, denoted by MA(q)}: \[x_t = \mu+\omega_t+\theta_1\omega_{t-1}+\theta_2\omega_{t-2}+\dots+\theta_q\omega_{t-q}.\]
+ 
+ Note: Many textbooks and software programs define the model with negative signs before the $\theta$ terms.  This doesn't change the general theoretical properties of the model, although it does flip the algebraic signs of estimated coefficient values and (unsquared) $\theta$ terms in formulas for ACFs and variances.  You need to check your software to verify whether negative or positive signs have been used in order to correctly write the estimated model.  R uses positive signs in its underlying model.
+ 
+ \noindent \textbf{Properties of MA(1)}
+Formulas for the mean, variance, and ACF for a time series process with an MA(1) model follow.
+\begin{itemize}
+  \item The (theorectical) mean of $x_t$ is $\mu $
+  \item The variance is \[\mbox{Var}(x_t) = \sigma_{\omega}^2(1+\theta_1^2)\]
+  \item The correlation between observations $h$ time periods apart is $\rho_1 = \theta_1/(1+\theta_1^2)$ and $\rho_h = 0$ for $h \geq 2$.
+\end{itemize}
+
+\vspace*{3in}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+library(astsa)
+y = ARMAacf(ma = c(0.7), lag.max = 10)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for MA(1) with $\theta_1$ = 0.7}
+\label{fig:MAacf1}
+\end{figure}
+
+The plot just shown is the theoretical ACF for an MA(1) with $\theta_1= 0.7$.  In practice, a sample won’t usually provide such a clear pattern.  Using R, we simulated n = 100 sample values using the model $x_t = 10+\omega_t+0.7\omega_{t-1}$.  For this simulation, a time series plot of the sample data follows.  We can’t tell much from this plot.
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+y = arima.sim(n = 100,model = list(ma=c(0.7)))+10
+plot(y, xlab = "Time",ylab = "y",type="o")
+acf(y)
+@
+\caption{Simulated MA(1) series with $\theta_1$ = 0.7}
+\label{fig:dataMAacf1}
+\end{figure} 
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+acf(y)
+@
+\caption{Sample ACF for MA(1) with $\theta_1$ = 0.7}
+\label{fig:sampleMAacf1}
+\end{figure}
+
+
+ \noindent \textbf{Properties of MA(2)}
+Formulas for the mean, variance, and ACF for a time series process with an MA(2) model follow.
+\begin{itemize}
+  \item The (theorectical) mean of $x_t$ is $\mu $
+  \item The variance is \[\mbox{Var}(x_t) = \sigma_{\omega}^2(1+\theta_1^2+\theta_2^2)\]
+  \item The correlation between observations $h$ time periods apart is $\rho_1 = (\theta_1+\theta_1\theta_2)/(1+\theta_1^2+\theta_2^2)$, $\rho_2 = \theta_2/(1+\theta_1^2+\theta_2^2)$ and $\rho_h = 0$ for $h \geq 3$. Note that the only nonzero values in the theoretical ACF are for lags 1 and 2.  Autocorrelations for higher lags are 0.  So, a sample ACF with significant autocorrelations at lags 1 and 2, but non-significant autocorrelations for higher lags indicates a possible MA(2) model.
+\end{itemize}
+
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+library(astsa)
+y = ARMAacf(ma = c(0.5,0.3), lag.max = 10)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for MA(2) with $\theta_1$ = 0.5 and $\theta_2$ = 0.3.}
+\label{fig:MAacf2}
+\end{figure}
+
+The plot just shown is the theoretical ACF for an MA(1) with $\theta_1= 0.7$.  In practice, a sample won't usually provide such a clear pattern.  Using R, we simulated n = 100 sample values using the model $x_t = 10+\omega_t+0.7\omega_{t-1}$.  For this simulation, a time series plot of the sample data follows.  We can't tell much from this plot.
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+y = arima.sim(n = 100,model = list(ma=c(0.5,0.3)))+10
+plot(y, xlab = "Time",ylab = "y",type="o")
+acf(y)
+@
+\caption{Simulated MA(2) series with $\theta_1$ = 0.5 and $\theta_2$ = 0.3.}
+\label{fig:dataMAacf2}
+\end{figure} 
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.height=6,fig.align='center'>>=
+acf(y)
+@
+\caption{Sample ACF for MA(2) with $\theta_1$ = 0.5 and $\theta_2$ = 0.3.}
+\label{fig:sampleMAacf2}
+\end{figure}
+
+
+\noindent \textbf{ACF for General MA(q) Models}
+
+A property of MA(q) models in general is that there are nonzero autocorrelations for the first $q$ lags and autocorrelations = 0 for all lags $>q$.
+
+\noindent \textbf{Non-uniqueness of connection between values of $\theta_1$ and $\rho_1$ in MA(1) Model.}
+
+In the MA(1) model, for any value of $\theta_1$, the reciprocal $1/\theta_1$ gives the same value for $\rho_1$
+To satisfy a theoretical restriction called invertibility, we restrict MA(1) models to have values with absolute value less than 1.  In the example just given, $\theta_1 = 0.5$ will be an allowable parameter value, whereas $\theta_2 = 0.5$ will not.
+
+
+\noindent \textbf{Invertibility of MA models}
+
+An MA model is said to be invertible if it is algebraically equivalent to a converging infinite order AR model.  By converging, we mean that the AR coefficients decrease to 0 as we move back in time.
+
+Invertibility is a restriction programmed into time series software used to estimate the coefficients of models with MA terms.  It's not something that we check for in the data analysis.  
+
+Advanced Theory Note:  For a MA(q) model with a specified ACF, there is only one invertible model.  The necessary condition for invertibility is that the $\theta$ coefficients have values such that the equation (characteristic function) $1-\theta_1z-\theta_2z^2 -\dots - \theta_qz^q = 0$ has solutions for $z$ that fall outside the unit circle.
+
+
+\end{document}

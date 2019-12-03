@@ -1,0 +1,185 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newtheorem{exmp}{Example}[section]
+\title{ARIMA models}
+\begin{document}
+\date{}
+\maketitle
+
+\SweaveOpts{concordance=TRUE}
+
+In this section, you will learn about some notational conventions, Autoregressive Moving average (ARMA) model, and Non-seasonal Autoregressive integrated Moving average (ARIMA) models.
+\section{Backshift operator}
+Using $B$ before either a value of the series $x_t$ or an error term $\omega_t$ means to move that element back one time.  For instance,
+\[Bx_t = x_{t-1}\]
+
+A ``power'' of B means to repeatedly apply the backshift in order to move back a number of time periods that equals the ``power.''  As an example,
+
+\[B^2x_t = x_{t-2}\]
+
+In terms of the backshift operator, AR(p) model $x_t = \delta+\phi_1x_{t-1}+\phi_2x_{t-2} + \cdots +\phi_px_{t-p}+\omega_t$ can be represented as
+\[
+(1-\phi_1B-\phi_2B^2 - \ldots \phi_pB^P)x_t = \delta+ \omega_t
+\]
+
+
+The {\bf autoregressive polynomial} is defined to be
+\[
+\phi(B) = 1-\phi_1B-\phi_2B^2-\ldots-\phi_pB^p.
+\]
+
+\vspace{1in}
+
+In terms of the backshift operator, MA(q): $x_t = \delta+ \omega_t + \theta_1\omega_{t-1} + \theta_2\omega_{t-2} + \ldots + \theta_q\omega_{t-q}$ can be represented as $x_t = \delta+\theta(B)\omega_t$ where $\theta(B)$ (the moving average polynomial) is defined as
+\[
+\theta(B) = 1 + \theta_1B + \theta_2B^2 + \ldots + \theta_qB^q
+\]
+
+\section{Representation of AR models using MA models}
+Consider the first-order model, AR(1), given by $x_t=\phi_1 x_{t-1}+ \omega_t$, we would obtain \[x_t = \phi^k_1x_{t-k}+\sum_{j=0}^{k-1}\phi^j_1\omega_{t-j}\] by iteratively replacing $x_k$ using the past series. 
+\[
+\mbox{If $|\phi_1|< 1$ }, x_t = \sum_{j=0}^{\infty}\phi^j_1\omega_{t-j} , \mbox{ then }{ E}\left[x_t\right] = \sum_{j=0}^{\infty}\phi^j_1{\rm E}\left[\omega_{t-j}\right] = 0.
+\]
+
+From pervious note, $|\phi_1|< 1$ is a condition for $x_t$ to be stationary. When $x_t$ can be rewritten as a MA series and depend on the error terms $\omega_s, s\leq t$, then the time series is also referred as {\bf causal}.
+If $|\phi_1|> 1$, such processes are called explosive because the values of the time series quickly become large in magnitude. Clearly, because $|\phi_1|^j$ increases without bound as $j \rightarrow \infty$, $\sum_{j=1}^{k-1}\phi_1^j\omega_{t-j}$ will not converge as $k \rightarrow \infty$.
+\vspace*{1in}
+\section{Representation of MA models using AR models}
+Consider the first-order model, MA(1), given by $x_t= \omega_t+\theta_1 \omega_{t-1}$, we would obtain \[x_t = \omega_t+\theta_1x_{t-1}-\theta_1^2x_{t-2}+\theta_1^3x_{t-3}+\dots\] by iteratively replacing $\omega_s$ using $x_s-\theta_1 \omega_{s-1}$, starting from $\omega_{t-1}$. 
+
+
+From pervious note, $|\theta_1|< 1$ is a condition for $x_t$ to be invertible.
+\vspace*{1in}
+\section{Autoregressive Moving Average Models}
+A time series$\{x_t; t= 0, \pm1, \pm2, \ldots\}$ is $ARMA(p,q)$ if
+\[
+x_t = \delta+\phi_1x_{t-1}+ \ldots + \phi_px_{t-p} + \omega_t +\theta_1\omega_{t-1} + \ldots + \theta_q\omega_{t-q}
+\]
+with $\phi_p \ne 0$, $\theta_q\ne 0$, and $\sigma^2_q >0$. The parameters $p$ and $q$ are called the autoregressive and the moving average orders respectively. The {\bf AR and MA Polynomials} are defined as
+\[
+\phi(z) = 1- \phi_1z- \ldots - \phi_pz^p, 
+\]
+and 
+\[
+\theta(z) = 1+ \theta_1z+ \ldots + \theta_qz^q, 
+\]
+respectively.  A concise representation of a ARMA Model is:
+\[
+\phi(B)x_t = \delta+\theta(B)\omega_t
+\]
+
+\noindent Assumptions:
+\begin{itemize}
+  \item $\omega_t \overset{iid}{\sim} N(0, \sigma_{\omega}^2)$, meaning that the errors are independently distributed with a normal distribution that has mean 0 and constant variance.
+  \item Properties of the errors $\omega_t$ are independent of $x_t$.
+  \item The series $x_1, x_2, \dots, $ is (weakly) stationary and intertible.  A requirement for the time series to be stationary is that the AR polynomial have all roots outside the unit circle. A requirement for the time series to be invertible is that the MA polynomial have all roots outside the unit circle.
+\end{itemize}
+
+\subsection{Parameter redundancy of $ARMA(p,q)$}
+Consider the following lines of thought:
+\begin{eqnarray*}
+x_t & = & \omega_t\\
+x_t-.5x_{t-1}&  = & \omega_t-.5x_{t-1}\\
+x_t -.5x_{t-1}& = & \omega_t-.5\omega_{t-1}\\
+x_t & = & .5x_{t-1} + \omega_t-.5\omega_{t-1}
+\end{eqnarray*}
+This looks like an $ARMA(1,1)$, but we know that $x_t$ is just white noise. The consideration of redundancy would be crucial when we discuss estimation for general ARMA models. As this example points out, we might fit an $ARMA(1,1)$ model to white noise data and find that the parameter estimates are significant. Solution: remove the common factor of $\phi(z)$ and $\theta(z)$.
+
+\begin{exmp} consider the process $x_t=0.4x_{t-1}+0.45x_{t-2}+\omega_t+\omega_{t-1}+0.25\omega_{t-2}$ for parameter redundancy, stationarity, and invertibility. In some cases, use 'polyroot' function in R to calculate roots. If complex roots are obtained, use 'Mod' function in R to find the module of complex numbers.
+\end{exmp}
+\vspace*{2in}
+
+\subsection{ACF of ARMA$(p,q)$}
+Note that $\phi(B)x_t = \delta+\theta(B)\omega_t$ where the roots of $\phi(z)$ are outside the unit cycle. Write \[x_t = \frac{\delta}{\phi(B)}+\frac{\theta(B)}{\phi(B)} \omega_t = \sum_{j=0}^\infty \psi_j \omega_{t-j}\]
+\begin{itemize}
+  \item $E(x_t) = \frac{\delta}{\phi(1)}$.
+  \item $\gamma(h) = \sigma_{\omega}^2 \sum_{j=0}^\infty \psi_j\psi_{j+h}$.
+\end{itemize}
+
+\vspace*{1in}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(astsa)
+y = ARMAacf(ar=c(1,-0.5),ma = c(0.5,0.3), lag.max = 10)
+y = y[2:21]
+plot(y, x = 1:20, type = "h", ylim = c(-0.5,1), xlab = "Lag",
+      ylab = "Autocorrelation")
+@
+\caption{ACF for ARMA(2,2) with $\boldsymbol{\phi} = (1,-0.5)$ $\boldsymbol{\theta} = (0.5,0.3)$.}
+\label{fig:ARMAacf1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+set.seed(53)
+y = arima.sim(n = 100, list(order=c(2,0,2),ar=c(1,-0.5),ma = c(0.5,0.3)),sd = sqrt(0.2))
+plot(y, xlab = "Time",ylab = "y",type="o")
+acf(y)
+@
+\caption{Simulated ARMA(2,2) series with $\boldsymbol{\phi} = (1,-0.5)$, $\boldsymbol{\theta} = (0.5,0.3)$.}
+\label{fig:dataARMAacf1}
+\end{figure}
+
+\newpage
+
+\section{Non-seasonal ARIMA models}
+ARIMA models, also called Box-Jenkins models, are models that may possibly include autoregressive terms, moving average terms, and differencing operations.  Various abbreviations are used:
+
+\begin{itemize}
+  \item When a model only involves autoregressive terms it may be referred to as an AR model.  When a model only involves moving average terms, it may be referred to as an MA model.
+  \item When no differencing is involved, the abbreviation ARMA may be used.
+\end{itemize}
+Note: We only considering non-seasonal models.  We will expand our toolkit to include seasonal models next.
+The integrated ARMA, or ARIMA model is a broadening of the class of ARMA models to include differencing.  A process $x_t$ is said to be {\bf ARIMA}$(p,d,q)$ if
+\[
+\boldsymbol{\bigtriangledown}^dx_t = \left(1-B\right)^dx_t
+\]
+is $ARMA(p,q)$. In general, we will write this model as
+\[
+\phi(B)\left(1-B\right)^dx_t = \theta(B)\omega_t
+\]
+If ${\rm E}\left[\boldsymbol{\bigtriangledown}^dx_t\right] = \mu$, we write the model as
+\[
+\phi(B)\left(1-B\right)^dx_t = \delta + \theta(B)\omega_t
+\]
+where $\delta=\mu(1-\phi_1-\ldots-\phi_p) = \mu\phi(1). $
+
+\vspace*{0.2in}
+
+If $x_t$ has a determinstic trend,
+\begin{itemize}
+  \item 1st difference removes a linear trend in $x_t$.
+  \item 2nd difference removes a quartic trend in $x_t$.
+\end{itemize}
+
+
+\vspace*{0.2in}
+
+
+
+
+If the process contains no autoregressive terms, we call it an integrated moving average and abbreviate the name to IMA(d,q). The simple IMA(1,1) model satisfactorily represents numerous time series, especially those arising in economics and business. The model is \[x_t=x_{t-1}+\omega_t-\theta_1 \omega_{t-1}.\] The corresponding forecasting method called exponentially weighted moving averages (EWMA).
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+set.seed(53)
+y = arima.sim(n = 100, list(order=c(2,1,2),ar=c(1,-0.5),ma = c(0.5,0.3)),
+          sd = sqrt(0.2))
+plot(y, xlab = "Time",ylab = "y",type="o")
+acf(y)
+@
+\caption{Simulated ARIMA(2,1,2) series with $\boldsymbol{\phi} = (1,-0.5)$ $\boldsymbol{\theta} = (0.5,0.3)$}
+\label{fig:dataMAacf1}
+\end{figure} 
+\newpage
+\begin{exmp} Identify each model in the following as an ARMA($p,d,q$).
+\end{exmp}
+\begin{itemize}
+  \item $x_t = 1.7x_{t-1}-0.7x_{t-2}+\omega_t$
+  \item $x_t = 1.5x_{t-1}-0.5x_{t-2}+\omega_t-\omega_{t-1}+0.25\omega_{t-2}$
+\end{itemize}
+\vspace*{1in}
+
+\end{document}

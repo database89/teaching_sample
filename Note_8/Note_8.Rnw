@@ -1,0 +1,521 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newtheorem{exmp}{Example}[section]
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Forecasting}
+\date{}
+\maketitle
+\section{Cross-correlation function}
+
+\subsection{Joint stationarity}
+Let $y_t$ be the time series of the response variable and $x_t$ be a covariate time series. 
+We define the cross-covariance function \[\gamma_{t,s}(x,y) = Cov(x_t,y_s)\] for each pair of integers $t$ and $s$. $x_t$ and $y_s$ are jointly stationary if their means are constant and the covariance is a function of the time difference $t-s$.
+
+
+For jointly stationary time series, the cross-correlation function (CCF) at lag $k$ is defined by \[\rho_k(x,y) = Corr(x_t,y_{t-k}) = Corr(x_{t+k},y_t).\] 
+$\rho_k(x,y)$ measures the linear association between $x_t$ and $y_{t-k}$. The cross-correlation function is generally not an even function as $Corr(x_t,y_{t-k})$ needs not equal $Corr(x_t,y_{t+k})$.
+
+\subsection{Sample cross correlation function}
+The CCF function can be estimated by the sample cross-correlation function \[r_k(x,y) = \frac{\sum_{i=1}^n(x_i-\bar{x})(y_i-\bar{y})}{\sqrt{\sum_{j=1}^n(x_i-\bar{x})^2(y_i-\bar{y})^2}}.\]
+
+\begin{itemize}
+  \item If either $x_t$ or $y_t$ is white noise, \[\sqrt{n}r_k(x,y)\sim N(0,1)\]
+  We can look for peaks in the sample CCF to identify a leading or lagging relation. 
+  \item Under the assumption that both $x_t$ and $y_t$ are stationary but none is white noise, and that they are independent of each other, \[\sqrt{n}r_k(x,y)\sim N(0,1+2\sum_{k=1}^{\infty}\rho_k(x)\rho_k(y))\]
+where $\rho_k(x)$ and $\rho_k(y)$ are autocorrelation function of time series $x_t$ and $y_t$. The ratio of the sampling variance of estimator $r_k(x,y)$  to the nominal value of $1/n$ approaches infinity when $x_t$ and $y_t$ are close to nonstationarity. We can no longer look for peaks in the sample CCF to identify a leading or lagging relation.  
+\item The sample CCF may no longer be approximately Normally distributed for nonstationary data. 
+
+
+\end{itemize}
+
+\subsection{Prewhitening}
+If $x_t$ follows ARIMA$(p,d,q)$, then it admits an AR($\infty$) representation: \[\pi(B)x_t = \omega_t. \]
+Define $\tilde{x}_t = \pi(B)x_t$, then $\tilde{x}_t$ is a white noise series. The process of transforming $x_t$ to $\tilde{x}_t$ via filter $\pi(B)$ is known as prewhitening.
+
+\vspace{1cm}
+The linear relationship between $y_t$ and $x_t$ will be preserved after prewhitening $x_t$ and $y_t$ using the same $\pi(B)$. After prewhitening both $x_t$ and $y_t$, \begin{itemize}
+  \item the statistical significance of the sample CCF of the prewhitened data can be assessed using the cutoff $1.96/\sqrt{n}$,
+  \item the theorectical counterpart of the CCF estimated is proportional to certain regression coefficients.
+\end{itemize}
+
+Pre-whitening strategy:\begin{enumerate}
+  \item Determine a time series model for the $x$-variable and store the residuals from this model. \item Filter the $y$-variable series using the $x$-variable model (using the estimated coefficients from step 1).  
+  \item Examine the CCF between the residuals from Step 1 and the filtered $y$-values from Step 2.  This CCF can be used to identify the possible terms for a lagged regression.
+\end{enumerate}
+
+\begin{exmp}  The data for this example were simulated.  The $x$-series was simulated as an ARIMA (1,1,0) process with ``true'' $\phi_1$=0.7.  The error variance was 1.  The sample size was $n = 200$.  The $y$-series was determined as $y_t = 15 + 0.8x_{t-3} + 1.5x_{t-4}$.  To be more realistic, we should add random error into y, but we wanted to ensure a clear result so we skipped that step.  
+\end{exmp}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(astsa)
+library(fpp2)
+x = arima.sim(list(order = c(1,1,0), ar = 0.7), n = 200) 
+#Generates random data from ARIMA(1,1,0).  This will generate a new data set for each call.   
+z = ts.intersect(x, lag(x,-3), lag(x,-4)) 
+#Creates a matrix z with columns, xt, xt-3, and xt-4
+y = 15+0.8*z[,2]+1.5*z[,3] 
+#Creates y from lags 3 and 4 of randomly generated x
+Ccf(z[,1],y,na.action = na.omit)  
+#CCF between x and y
+ 
+@
+\caption{Sample CCF of sampled x and y time series.}
+\label{fig:simul1}
+\end{figure}
+
+<<Auto ARIMA>>=
+ar1model = arima(x, order = c(1,1,0))
+pwx=ar1model$residuals
+newpwy = filter(y, filter = c(1,-1.7445,.7445), sides =1)
+@
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+Ccf (pwx,newpwy,na.action=na.omit) 
+@
+\caption{Sample CCF of prewhitened x and filtered y time series.}
+\label{fig:ccf1}
+\end{figure}
+
+
+``prewhiten'' function in TSA package: the bivariate time series $x$ and $y$ are prewhitened according to an AR model fitted to the x-component of the bivariate series. Alternatively, if an ARIMA model is provided, it will be used to prewhiten both series. The CCF of the prewhitened bivariate series is then computed and plotted.
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(TSA)
+prewhiten(x,y,ylab='CCF',x.model=ar1model)
+@
+\caption{Sample CCF of prewhitened x and filtered y time series using ``prewhiten'' function.}
+\label{fig:ccf2}
+\end{figure}
+
+
+
+\begin{exmp}  US consumption expenditure. 
+Figure \ref{fig:usce} shows time series of quarterly percentage changes (growth rates) of real personal consumption expenditure $y$, and real personal disposable income, $x$, for the US from 1970 Q1 to 2016 Q3. 
+\end{exmp}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(forecast)
+library(fpp2)
+library(ggplot2)
+data(uschange)
+plotdata = cbind(uschange[,c("Consumption","Income",
+                             "Production", "Unemployment", "Savings")])
+autoplot(plotdata,facets=TRUE) + xlab("Year")
+@
+\caption{Percentage changes in personal consumption expenditure and personal income for the US.}
+\label{fig:usce}
+\end{figure}
+
+<<Auto ARIMA>>=
+fit_income = auto.arima(uschange[,"Income"])
+fit_production = auto.arima(uschange[,"Production"])
+fit_unemployment = auto.arima(uschange[,"Unemployment"])
+fit_savings= auto.arima(uschange[,"Savings"])
+@
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+par(mfrow=c(2,2))
+prewhiten(uschange[,"Income"],uschange[,"Consumption"],ylab='CCF',
+          x.model=fit_income,main="Income and Consumption")
+prewhiten(uschange[,"Production"],uschange[,"Consumption"],ylab='CCF',
+          x.model=fit_production,main="Production and Consumption")
+prewhiten(uschange[,"Unemployment"],uschange[,"Consumption"],ylab='CCF',
+          x.model=fit_unemployment,main="Unemployment and Consumption")
+prewhiten(uschange[,"Savings"],uschange[,"Consumption"],ylab='CCF',
+          x.model=fit_savings,main="Savings and Consumption")
+@
+\caption{Sample CCF of prewhitened covarates and filter consumption time series using ``prewhiten'' function.}
+\label{fig:ccf2}
+\end{figure}
+
+
+
+\section{Dynamical regression models}
+
+ We considered regression models of the form $$ y_t = \beta_0 + \beta_1 x_{1,t} + \dots + \beta_k x_{k,t} + \omega_t, $$ where $y_t$ is a linear function of the $k$ predictor variables ($x_{1,t},\dots,x_{k,t}$), and $\omega_t$ is usually assumed to be an uncorrelated error term (i.e., it is white noise). Tests such as the Breusch-Godfrey test can assess whether $\omega_t$ was significantly correlated.
+
+In section, we will allow the errors from a regression to contain autocorrelation. To emphasise this change in perspective, we replace $\omega_t$ with $n_t$ in the equation. The error series $n_t$ is assumed to follow an ARIMA model. For example, if $n_t$ follows an ARIMA(1,1,1) model, we can write \begin{align*} y_t &= \beta_0 + \beta_1 x_{1,t} + \dots + \beta_k x_{k,t} + n_t,\ & (1-\phi_1B)(1-B)n_t = (1+\theta_1B)\omega_t, \end{align*} where $\omega_t$ is a white noise series.
+
+Notice that the model has two error terms here-- the error from the regression model, which we denote by $n_t$, and the error from the ARIMA model, which we denote by $\omega_t$. Only the ARIMA model errors are assumed to be white noise.
+
+\subsection{Estimation}
+
+Conditiona least square method to estimate the parameters in the model: minimize the sum of squared $\omega_t$ values. If we minimise the sum of squared $n_t$ values instead (which is what would happen if we estimated the regression model ignoring the autocorrelations in the errors), then several problems arise.
+\begin{itemize}
+  \item The estimated coefficients $\hat{\beta}_0,\dots,\hat{\beta}_k$ are no longer the best estimates, as some information has been ignored in the calculation;
+  \item Any statistical tests associated with the model (e.g., t-tests on the coefficients) will be incorrect.
+\item The AICc values of the fitted models are no longer a good guide as to which is the best model for forecasting.
+\item In most cases, the $p$-values associated with the coefficients will be too small, and so some predictor variables will appear to be important when they are not. This is known as ``spurious regression''.
+\end{itemize}
+
+Important considerations:
+\begin{itemize}
+  \item When estimating a regression with ARMA errors is that all of the variables in the model must first be stationary. Thus, we first have to check that {\bf $y_t$ and all of the predictors $(x_{1,t},\dots,x_{k,t})$ appear to be stationary}. If we estimate the model when any of these are non-stationary, the estimated coefficients will not be consistent estimates (and therefore may not be meaningful).
+  \item One exception to this is the case where non-stationary variables are co-integrated.  If there exists a linear combination of the non-stationary $y_t$ and the predictors that is stationary, then the estimated coefficients will be consistent. An example is that $y_t$  is nonstationary and use $t, t^2, cos(2\pi t)$ etc. as predictors but after removing the trend $y_t$ is stationary.
+\end{itemize}
+
+We therefore first difference the non-stationary variables in the model. It is often desirable to maintain the form of the relationship between $y_t$ and the predictors, and consequently it is common to difference all of the variables if any of them need differencing. The resulting model is then called a ``model in differences'', as distinct from a ``model in levels", which is what is obtained when the original data are used without differencing.
+
+If all of the variables in the model are stationary, then we only need to consider ARMA errors for the residuals. It is easy to see that a regression model with ARIMA errors is equivalent to a regression model in differences with ARMA errors. For example, if the above regression model with ARIMA(1,1,1) errors is differenced we obtain the model \begin{align*} \triangeldown y_t &= \beta_1 \triangeldown x_{1,t} + \dots + \beta_k  \triangeldown x_{k,t} + \triangeldown n_t,\ & (1-\phi_1B) \triangeldown n_t = (1+\theta_1B)\omega_t, \end{align*} where $\triangeldown y_t=y_t-y_{t-1}$, $\triangeldown x_{t,i}=x_{t,i}-x_{t-1,i}$ and $\triangeldown n_t=n_t-n_{t-1}$, which is a regression model in differences with ARMA errors.
+
+\subsection{R implementation}
+
+The R function Arima() will fit a regression model with ARIMA errors if the argument xreg is used. The order argument specifies the order of the ARIMA error model. If differencing is specified, then the differencing is applied to all variables in the regression model before the model is estimated. For example, the R command ``fit <- Arima(y, xreg=x, order=c(1,1,0))'' will fit the model $\triangeldown y_t = \beta_1 \triangeldown x_t + \triangeldown n_t$, where $\triangeldown n_t = \phi_1 \triangeldown n_{t-1} + e_t$ is an AR(1) error. This is equivalent to the model $$ y_t = \beta_0 + \beta_1 x_t + n_t, $$ where $n_t$ is an ARIMA(1,1,0) error. Notice that the constant term disappears due to the differencing. To include a constant in the differenced model, specify include.drift=TRUE.
+
+The auto.arima() function will also handle regression terms via the xreg argument. The user must specify the predictor variables to include, but auto.arima will select the best ARIMA model for the errors.
+
+The AICc is calculated for the final model, and this value can be used to determine the best predictors. That is, the procedure should be repeated for all subsets of predictors to be considered, and the model with the lowest AICc value selected.
+
+\subsection{US Personal Consumption and Income}
+Example analysis:
+\begin{itemize}
+  \item Figure \ref{fig:DARIMA1} shows the quarterly changes in personal consumption expenditure and personal disposable income from 1970 to 2010. We would like to forecast changes in expenditure based on changes in income. A change in income does not necessarily translate to an instant change in consumption (e.g., after the loss of a job, it may take a few months for expenses to be reduced to allow for the new circumstances). However, we will ignore this complexity in this example and try to measure the instantaneous effect of the average change of income on the average change of consumption expenditure.
+  \item The data are clearly already stationary (as we are considering percentage changes rather than raw expenditure and income), so there is no need for any differencing. 
+  \item The fitted model is 
+  
+  \begin{align*} y_t &= 0.599+0.203x_t+n_t,\\
+  n_t &= 0.692n_{t-1}+\omega_t-0.576\omega_{t-1}+0.198\omega_{t-2},\\
+  \omega_t &\sim NID(0,0.322).
+  \end{align*}
+  \item We will calculate forecasts for the next eight quarters assuming that the future percentage changes in personal disposable income will be equal to the mean percentage change from the last forty years. It is important to realise that the prediction intervals from regression models (with or without ARIMA errors) do not take into account the uncertainty in the forecasts of the predictors. So they should be interpreted as being conditional on the assumed (or estimated) future values of the predictor variables.
+\end{itemize}
+
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(forecast)
+library(fpp2)
+autoplot(uschange[,1:2], facets=TRUE) +
+  xlab("Year") + ylab("") + 
+  ggtitle("Quarterly changes in US consumption and personal income")
+
+@
+\caption{ Percentage changes in quarterly personal consumption expenditure and personal disposable income for the USA, 1970 to 2016 Q3.}
+\label{fig:DARIMA1}
+\end{figure}
+
+<<Auto ARIMA>>=
+(fit <- auto.arima(uschange[,"Consumption"], xreg=uschange[,"Income"]))
+@
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+cbind("Regression Errors" = residuals(fit, type="regression"),
+      "ARIMA errors" = residuals(fit, type="innovation")) %>%
+  autoplot(facets=TRUE)
+@
+\caption{ Regression errors ($n_t$) and ARIMA errors ($\omega_t$) from the fitted model.}
+\label{fig:DARIMA2}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+checkresiduals(fit)
+@
+\caption{The residuals (i.e., the ARIMA errors) are not significantly different from white noise.}
+\label{fig:DARIMA3}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+fcast <- forecast(fit, xreg=rep(mean(uschange[,2]),8))
+autoplot(fcast) + xlab("Year") +
+  ylab("Percentage change")
+@
+\caption{Forecasts obtained from regressing the percentage change in consumption expenditure on the percentage change in disposable income, with an ARIMA(1,0,2) error model.}
+\label{fig:DARIMA4}
+\end{figure}
+\subsection{Project: Forecasting electricity demand}
+Daily electricity demand can be modelled as a function of temperature. As can be observed on an electricity bill, more electricity is used on cold days due to heating and hot days due to air conditioning. The electricity demand data of the state of Victoria in Australia for 2014 are stored as `elecdaily' including total daily demand, an indicator variable for workdays (a workday is represented with 1, and a non-workday is represented with 0), and daily maximum temperatures. Because there is weekly seasonality, the frequency has been set to 7.
+
+\subsection{Stochastic and deterministic trends}
+
+There are two different ways of modelling a linear trend.
+
+\begin{itemize}
+  \item A deterministic trend is obtained using the regression model $$ y_t = \beta_0 + \beta_1 t + n_t, $$ where $n_t$ is an ARMA process.
+  \item A stochastic trend is obtained using the model $$ y_t = \beta_0 + \beta_1 t + n_t, $$ where $n_t$ is an ARIMA process with $d=1$. In that case, we can difference both sides so that $\triangeldown y_t = \beta_1 + \triangeldown n_t$, where $\triangeldown n_t$ is an ARMA process. In other words, $$ y_t = y_{t-1} + \beta_1 + \triangeldown n_t. $$ This is very similar to a random walk with drift, but here the error term is an ARMA process rather than simply white noise.
+
+\end{itemize}
+
+
+
+Although these models appear quite similar (they only differ in the number of differences that need to be applied to $n_t$), their forecasting characteristics are quite different.
+
+\subsubsection{International visitors to Australia data}
+
+Figure \ref{fig:SD1} shows the total number of international visitors to Australia each year from 1980 to 2010. We will fit both a deterministic and a stochastic trend model to these data. 
+
+The fitted deterministic model is: \begin{align*} y_t &= 0.416+0.171 t+n_t,\\
+  n_t &= 1.113 n_{t-1} - 0.380 n_{t-2} +\omega_t,\\
+  \omega_t &\sim NID(0,0.030).
+  \end{align*}
+  
+  
+The fitted stochastic model is $y_t-y_{t-1} = 0.173+n_t'$, which is equavalent to: \begin{align*} y_t &= y_0+0.173 t+n_t,\\
+  n_t &= n_{t-1} + 0.30 \omega_{t-1} +\omega_t,\\
+  \omega_t &\sim NID(0,0.034).
+  \end{align*}  
+
+Although the growth estimates are similar (0.17 million people per year), the prediction intervals are not, as Figure \ref{fig:SD2} shows. In particular, stochastic trends have much wider prediction intervals because the errors are non-stationary. In particular, stochastic trends have much wider prediction intervals because the errors are non-stationary.
+
+There is an implicit assumption with deterministic trends that the slope of the trend is not going to change over time. On the other hand, stochastic trends can change, and the estimated growth is only assumed to be the average growth over the historical period, not necessarily the rate of growth that will be observed into the future. Consequently, it is safer to forecast with stochastic trends, especially for longer forecast horizons, as the prediction intervals allow for greater uncertainty in future growth.
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+autoplot(austa) + xlab("Year") +
+  ylab("millions of people") +
+  ggtitle("Total annual international visitors to Australia")
+@
+\caption{Annual international visitors to Australia, 1980-2015.}
+\label{fig:SD1}
+\end{figure}
+
+
+<<Trend>>=
+trend <- seq_along(austa)
+(fit1 <- auto.arima(austa, d=0, xreg=trend))
+@
+
+<<Trend>>=
+(fit2 <- auto.arima(austa, d=1))
+@
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+fc1 <- forecast(fit1, xreg=data.frame(trend=length(austa)+1:10))
+fc2 <- forecast(fit2, h=10)
+autoplot(austa) +
+  forecast::autolayer(fc2, series="Stochastic trend") +
+  forecast::autolayer(fc1, series="Deterministic trend") +
+  ggtitle("Forecasts from deterministic and stochastic trend models") +
+  xlab("Year") + ylab("Visitors to Australia (millions)") +
+  guides(colour=guide_legend(title="Forecast"))
+@
+\caption{Forecasts of annual international visitors to Australia using a deterministic trend model and a stochastic trend model.}
+\label{fig:SD2}
+\end{figure}
+
+\subsubsection{Some plot functions}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+data(a10)
+ggseasonplot(a10, year.labels=TRUE, year.labels.left=TRUE) +
+  ylab("$ million") +
+  ggtitle("Seasonal plot: antidiabetic drug sales")
+@
+\caption{Seasonal plot of monthly antidiabetic drug sales in Australia.}
+\label{fig:seasonal1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+ggseasonplot(a10, polar=TRUE) +
+  ylab("$ million") +
+  ggtitle("Polar seasonal plot: antidiabetic drug sales")
+@
+\caption{Polar seasonal plot of monthly antidiabetic drug sales in Australia.}
+\label{fig:seasonal2}
+\end{figure}
+
+\newpage
+
+\subsection{Daynamic harmonic regression}
+
+When there are long seasonal periods, a dynamic regression with Fourier terms is often better than other seasonal models we have considered. For example, daily data can have annual seasonality of length 365, weekly data has seasonal period of approximately 52, while half-hourly data can have several seasonal periods, the shortest of which is the daily pattern of period 48.
+
+\begin{itemize}
+\item Seasonal versions of ARIMA are designed for shorter periods such as 12 for monthly data or 4 for quarterly data. The problem is that there are $m-1$ parameters to be estimated for the initial seasonal states where $m$ is the seasonal period. So for large $m$, the estimation becomes almost impossible.
+
+  \item The Arima() and auto.arima() functions will allow a seasonal period up to $m=350$, but in practice will usually run out of memory whenever the seasonal period is more than about 200. In any case, seasonal differencing of high order does not make a lot of sense for daily data it involves comparing what happened today with what happened exactly a year ago and there is no constraint that the seasonal pattern is smooth.
+  \item For such time series, we prefer a harmonic regression approach where the seasonal pattern is modelled using Fourier terms with short-term time series dynamics handled by an ARMA error.
+  \item R function "fourier(data, $K$ = i)" or ``harmonic(data,$K$ = i)" returns a matrix containing terms from a Fourier series, up to order $K$. The harmonic function create a matrix consisting of cos(2*k*pi*t), sin(2*k*pi*t), k=1,2,..,K. The frequency of the cosine and sin function is 2*k*pi/(2*pi) = k. The fourier function create a matrix consisting of cos(2*k*pi*t/S), sin(2*k*pi*t/S), k=1,2,..,K where S is the length of the period. The frequency of the cosine and sin function is 2*k*pi/(2*pi*S) = k/S.
+\end{itemize}
+
+\begin{exmp}
+ Australian eating out expenditure: In this example we demonstrate combining Fourier terms for capturing seasonality with ARIMA errors capturing other dynamics in the data. We use `auscafe`, the total monthly expenditure on cafes, restaurants and takeaway food services in Australia (\$billion), starting in 2004 up to November 2016 and we forecast 24 months ahead. We vary the number of Fourier terms from 1 to 6 (which is equivalent to including seasonal dummies). Figure \ref(fig:SD2) shows the seasonal pattern projected forward as $K$ increases. Notice that as $K$ increases the Fourier terms capture and project a more ``wiggly" seasonal pattern and simpler ARIMA models are required to capture other dynamics. The AICc value is maximised for $K=5$, with a significant jump going from $K=4$ to $K=5$,  hence the forecasts generated from this model would be the ones used.
+
+\end{exmp}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+data(auscafe)
+cafe04 <- window(auscafe, start=2004)
+plots <- list()
+for (i in 1:6) {
+  fit <- auto.arima(cafe04, xreg = fourier(cafe04, K = i), 
+                    seasonal = FALSE, lambda = 0) #lambda= 0 indicates log transformation
+  plots[[i]] <- autoplot(forecast(fit,xreg=fourier(cafe04, K=i, h=24))) +
+    xlab(paste("K=",i,"   AICC=",round(fit$aicc,2)))+ylab("") + 
+    ylim(1.5,4.7) +ggtitle(" ")
+}
+gridExtra::grid.arrange(plots[[1]],plots[[2]],plots[[3]],
+                        plots[[4]],plots[[5]],plots[[6]], nrow=3)
+  
+@
+\caption{Using Fourier terms and ARIMA errors for forecasting monthly expenditure on eating out in Australia.}
+\label{fig:SD2}
+\end{figure}
+
+\subsection{Complex seasonality}
+So far, we have considered relatively simple seasonal patterns such as quarterly and monthly data. However, higher frequency time series often exhibit more complicated seasonal patterns. 
+\begin{itemize}
+  \item Daily data may have a weekly pattern as well as an annual pattern.
+  \item Hourly data usually has three types of seasonality: a daily pattern, a weekly pattern, and an annual pattern.
+  \item  Even weekly data can be challenging to forecast as it typically has an annual pattern with seasonal period of 365.25/7 $\approx 52.179$ on average.
+ \item Such multiple seasonal patterns are becoming more common with high frequency data recording. Further examples where multiple seasonal patterns can occur include call volume in call centres, daily hospital admissions, requests for cash at ATMs, electricity and water usage, and access to computer web sites.
+ \end{itemize}
+ 
+ \begin{itemize}
+ \item  Most of the methods we have considered so far are unable to deal with these seasonal complexities. Even the `ts' class in R can only handle one type of seasonality, which is usually assumed to take integer values.
+  \item To deal with such series, we will use the `msts' class which handles multiple seasonality time series. This allows you to specify all of the frequencies that might be relevant. It is also flexible enough to handle non-integer frequencies.
+\end{itemize}
+
+<<msts>>=
+data(taylor)
+x <- msts(taylor, seasonal.periods=c(48,336), start=2000+22/52)
+data(USAccDeaths)
+y <- msts(USAccDeaths, seasonal.periods=12, start=1949)
+@
+
+\begin{exmp}
+The top panel of Figure \ref{fig:hf1} shows the number of retail banking call arrivals per 5-minute interval between 7:00am and 9:05pm each weekday over a 33 week period. The bottom panel shows the first three weeks of the same time series. There is a strong daily seasonal pattern with frequency 169 (there are 169 5-minute intervals per day), and a weak weekly seasonal pattern with frequency 169 $\times 5$ = 845. (Call volumes on Mondays tend to be higher than the rest of the week.) If a longer series of data were available, we may also have observed an annual seasonal pattern.
+\end{exmp}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+data(calls)
+p1 <- autoplot(calls) +
+  ylab("Call volume") + xlab("Weeks") +
+  scale_x_continuous(breaks=seq(1,33,by=2))
+p2 <- autoplot(window(calls, end=4)) +
+  ylab("Call volume") + xlab("Weeks") +
+  scale_x_continuous(minor_breaks = seq(1,4,by=0.2))
+gridExtra::grid.arrange(p1,p2)  
+@
+\caption{Five-minute call volume handled on weekdays between 7:00am and 9:05pm in a large North American commercial bank. Top panel shows data from 3 March 2003 to 23 May 2003. Bottom panel shows only the first three weeks.}
+\label{fig:hf1}
+\end{figure}
+
+\subsubsection{STL with multiple seasonal periods}
+
+\begin{itemize}
+\item The mstl() function is a variation on stl() designed to deal with multiple seasonality. It will return multiple seasonal components, as well as a trend and remainder component.
+
+  \item The decomposition can also be used in forecasting, with each of the seasonal components forecast using a seasonal naïve method, and the seasonally adjusted data forecasting using ETS (or some other user-specified method). The stlf() function will do this automatically.
+
+\end{itemize}
+
+Base on Figure \ref{hf2}, there are two seasonal patterns shown, one for the time of day (the third panel), and one for the time of week (the fourth panel). To properly interpret this graph, it is important to notice the vertical scales. In this case, the trend and the weekly seasonality have relatively narrow ranges compared to the other components, because there is little trend seen in the data, and the weekly seasonality is weak.
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+calls %>% mstl() %>%
+  autoplot() + xlab("Week") 
+@
+\caption{Multiple STL for the call volume data.}
+\label{fig:hf2}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+calls %>%  stlf() %>%
+  autoplot() + xlab("Week")
+@
+\caption{Multiple STL for the call volume data.}
+\label{fig:hf2}
+\end{figure}
+\subsubsection{Dynamic harmonic regression with multiple seasonal periods}
+With multiple seasonalities, we can use Fourier terms as we did in earlier. Because there are multiple seasonalities, we need to add Fourier terms for each seasonal period. In the example of calls data, the seasonal periods are 169 and 845, so the Fourier terms are of the form
+\[\mbox{sin}\left\(\frac{2\pi k t}{169}right\), \mbox{cos}\left\(\frac{2\pi k t}{169}right\), \mbox{sin}\left\(\frac{2\pi k t}{845}right\), \mbox{cos}\left\(\frac{2\pi k t}{845}right\)\]
+for $k=1,2,\dots$. The fourier() function can generate these for you.
+
+\begin{exmp} Calls data continued: We will fit a dynamic harmonic regression model with an ARMA error structure. The total number of Fourier terms for each seasonal period have been chosen to minimise the AICc. We will use a log transformation (lambda=0) to ensure the forecasts and prediction intervals remain positive. This is a large model, containing 43 parameters: 7 ARMA coefficients, 20 Fourier coefficients for frequency 169, and 16 Fourier coefficients for frequency 845. We don’t use all the Fourier terms for frequency 845 because there is some overlap with the terms of frequency 169.
+\end{exmp}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+calls.sub = subset(calls,start=length(calls)-3000)
+fit <- auto.arima(calls.sub, seasonal=FALSE, lambda=0,
+         xreg=fourier(calls.sub, K=c(10,10)))
+fit %>%
+  forecast(xreg=fourier(calls.sub, K=c(10,10), h=2*169)) %>%
+  autoplot(include=5*169) +
+    ylab("Call volume") + xlab("Weeks")
+@
+\caption{Forecasts from a dynamic harmonic regression applied to the call volume data.}
+\label{fig:hf3}
+\end{figure}
+
+\subsubsection{Complex seasonality with covariates}
+\begin{exmp}Figure \ref{fig:hf4} shows half-hourly electricity demand in Victoria, Australia, during 2014, along with temperatures for the same period for Melbourne (the largest city in Victoria).
+\end{exmp}
+We will fit a regression model with a piecewise linear function of temperature (containing a knot at 18 degrees), and harmonic regression terms to allow for the daily seasonal pattern.
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+data("elecdemand")
+autoplot(elecdemand[,c("Demand","Temperature")],
+    facet=TRUE) +
+  scale_x_continuous(minor_breaks=NULL,
+    breaks=2014+
+      cumsum(c(0,31,28,31,30,31,30,31,31,30,31,30))/365,
+    labels=month.abb) +
+  xlab("Time") + ylab("")
+@
+\caption{Half-hourly electricity demand and corresponding temperatures in 2014, Victoria, Australia.}
+\label{fig:hf4}
+\end{figure}
+
+<<msts>>=
+temp.sub <- subset(elecdemand[,"Temperature"],
+          start=NROW(elecdemand)-700)
+cooling <- pmax(temp.sub, 18)
+Demand.sub<- subset(elecdemand[,"Demand"],
+          start=NROW(elecdemand)-700)
+fit <- auto.arima(Demand.sub,
+         xreg = cbind(fourier(Demand.sub, c(10,10,0)),
+               heating=temp.sub,
+               cooling=cooling))
+@
+
+Forecasting with such models is difficult because we require future values of the predictor variables. Future values of the Fourier terms are easy to compute, but future temperatures are, of course, unknown. If we are only interested in forecasting up to a week ahead, we could use temperature forecasts obtain from a meteorological model. Alternatively, we could use scenario forecasting (Section 4.5) and plug in possible temperature patterns. 
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+temps <- subset(elecdemand[,"Temperature"],
+          start=NROW(elecdemand)-2*48+1)
+fc <- forecast(fit,
+        xreg=cbind(fourier(temps, c(10,10,0)),
+          heating=temps, cooling=pmax(temps,18)))
+autoplot(fc, include=14*48)
+@
+\caption{Forecasts from a dynamic harmonic regression model applied to half-hourly electricity demand data.}
+\label{fig:hf5}
+\end{figure}
+Although the short-term forecasts look reasonable, this is a crude model for a complicated process. The residuals demonstrate that there is a lot of information that has not been captured with this model.
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+checkresiduals(fc)
+@
+\caption{Residual diagnostics for the dynamic harmonic regression model.}
+\label{fig:hf5}
+\end{figure}
+
+More sophisticated versions of this model which provide much better forecasts are described in Hyndman and Fan (2010) and Fan and Hyndman (2012).
+
+\begin{itemize}
+  \item Hyndman, R. J., and Fan, S. (2010). Density forecasting for long-term peak electricity demand. IEEE Transactions on Power Systems, 25(2), 1142-1153.
+  \item Fan, S., & Hyndman, R. J. (2012). Short-term load forecasting based on a semi-parametric additive model. IEEE Transactions on Power Systems, 27(1), 134-141.
+\end{itemize}
+
+\end{document}

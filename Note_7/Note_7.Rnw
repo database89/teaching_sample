@@ -1,0 +1,456 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newtheorem{exmp}{Example}[section]
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Forecasting}
+\date{}
+\maketitle
+
+\section{Time series decomposition}
+
+\begin{itemize}
+  \item Additive decomposition: \[x_t = S_t+T_t+R_t\]
+where $x_t$ is the data, $S_t$ is the seasonal component, $T_t$ is the trend-cycle component, and $R_t$ is the remainder component, all at period $t$. The additive decomposition is the most appropriate if the magnitude of the seasonal fluctuations, or the variation around the trend-cycle, does not vary with the level of the time series.
+\item Multiplicative decomposition would be written as
+ \[x_t = S_t \times T_t \times R_t\]
+ A multiplicative decomposition is more appropriate when the variation in the seasonal pattern, or the variation around the trend-cycle, appears to be proportional to the level of the time series. Multiplicative decompositions are common with economic time series.
+\end{itemize}
+
+
+An alternative to using a multiplicative decomposition is to first transform the data until the variation in the series appears to be stable over time, then use an additive decomposition. 
+ 
+ \subsection{Moving averages}
+ 
+ The classical method of time series decomposition originated in the 1920s and was widely used until the 1950s. It still forms the basis of many time series decomposition methods, so it is important to understand how it works. The first step in a classical decomposition is to use a moving average method to estimate the trend-cycle. 
+ 
+ \vspace{1cm}
+ {\bf A moving average of order $M$} can be written as
+ \[\hat{T}_t = \frac{1}{m}\sum_{j=-k}^k x_{t+j}\]
+ where $m=2*k+1$. We call this an $m$-MA, meaning a moving average of order $m$ .
+ 
+ \begin{exmp}South Australia electricity sales: Figure \ref{fig:elec2} shows the volume of electricity sold to residential customers in South Australia each year from 1989 to 2008 (hot water sales have been excluded). Base on Figure \ref{fig:elec2}, the trend-cycle (in red) is smoother than the original data and captures the main movement of the time series without all of the minor fluctuations. The order of the moving average determines the smoothness of the trend-cycle estimate. In general, a larger order means a smoother curve.
+ \end{exmp}
+ 
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(fpp2)
+library(forecast)
+autoplot(elecsales, series="Data") +
+  autolayer(ma(elecsales,5), series="5-MA") +
+  xlab("Year") + ylab("GWh") +
+  ggtitle("Annual electricity sales: South Australia") +
+  scale_colour_manual(values=c("Data"="grey50","5-MA"="red"),
+                      breaks=c("Data","5-MA"))
+@
+\caption{Residential electricity sales (black) along with the 5-MA estimate of the trend-cycle (red).}
+\label{fig:elec2}
+\end{figure}
+
+\subsection{Centred moving averages}
+The most common use of centred moving averages is for estimating the trend-cycle from seasonal data. Consider the $2\times 4$ -MA:
+\[\hat{T}_t = \frac{1}{8} x_{t-2}+ \frac{1}{4} x_{t-1}+ \frac{1}{4} x_{t}+ \frac{1}{4} x_{t+1}+ \frac{1}{8} x_{t+2}\]
+When applied to quarterly data, each quarter of the year is given equal weight as the first and last terms apply to the same quarter in consecutive years. Consequently, the seasonal variation will be averaged out and the resulting values of $\hat{T}_t$ will have little or no seasonal variation remaining. A similar effect would be obtained using a $2\times 8$ -MA or a $2\times 12$ -MA to quarterly data.
+
+\begin{itemize}
+\item In general, a  $2\times m$ -MA is equivalent to a weighted moving average of order $m+1$ where all observations take the weight $1/m$, except for the first and last terms which take weights $1/(2m)$ .
+  \item So, if the seasonal period is even and of order $m$, we use a $2\times m$-MA to estimate the trend-cycle. If the seasonal period is odd and of order $m$, we use a  $m$-MA to estimate the trend-cycle.
+  \item Other choices for the order of the MA will usually result in trend-cycle estimates being contaminated by the seasonality in the data.
+\end{itemize}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+
+autoplot(elecequip, series="Data") +
+  autolayer(ma(elecequip, 12,centre=TRUE), series="12-MA") +
+  xlab("Year") + ylab("New orders index") +
+  ggtitle("Electrical equipment manufacturing (Euro area)") +
+  scale_colour_manual(values=c("Data"="grey","12-MA"="red"),
+                      breaks=c("Data","12-MA"))
+@
+\caption{A 2x12-MA applied to the electrical equipment orders index.}
+\label{fig:elec2}
+\end{figure}
+
+\subsection{Classical decomposition}
+The classical decomposition method originated in the 1920s. It is a relatively simple procedure, and forms the starting point for most other methods of time series decomposition. There are two forms of classical decomposition: an additive decomposition and a multiplicative decomposition. 
+
+Additive decompostion:
+\begin{enumerate}
+  \item If seasonal period $m$ is an even number, compute the trend-cycle component $\hat{T}_t$ using a $2\times m$-MA. If $m$ is an odd number, compute the trend-cycle component $\hat{T}_t$ using an m-MA.
+  \item Calculated the detrended series: $x_t-\hat{T}_t$.
+  \item To estimate the seasonal component for each season, simply average the detrended values for that season. 
+  \item The remainder component is calculated by subtracting the estimated seasonal and trend-cycle components: $\hat{R}_t = x_t-\hat{T}_t-\hat{S}_t$.
+\end{enumerate}
+
+Additive decompostion:
+\begin{enumerate}
+  \item If seasonal period $m$ is an even number, compute the trend-cycle component $\hat{T}_t$ using a $2\times m$-MA. If $m$ is an odd number, compute the trend-cycle component $\hat{T}_t$ using an m-MA.
+  \item Calculated the detrended series: $x_t/\hat{T}_t$.
+  \item To estimate the seasonal component for each season, simply average the detrended values for that season. 
+  \item The remainder component is calculated by subtracting the estimated seasonal and trend-cycle components: $\hat{R}_t = x_t/(\hat{T}_t\hat{S}_t)$.
+\end{enumerate}
+
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+elecequip %>% decompose(type="multiplicative") %>%
+  autoplot() + xlab("Year") +
+  ggtitle("Classical multiplicative decomposition
+    of electrical equipment index")
+@
+\caption{A classical multiplicative decomposition of the new orders index for electrical equipment.}
+\label{fig:decomp}
+\end{figure}
+
+Comments on classical decomposition:
+\begin{itemize}
+  \item The estimate of the trend-cycle is unavailable for the first few and last few observations. 
+  \item The trend-cycle estimate tends to over-smooth rapid rises and falls in the data.
+  \item Classical decomposition methods assume that the seasonal component repeats from year to year. For many series, this is a reasonable assumption, but for some longer series it is not. For example, electricity demand patterns have changed over time as air conditioning has become more widespread. Specifically, in many locations, the seasonal usage pattern from several decades ago had its maximum demand in winter (due to heating), while the current seasonal pattern has its maximum demand in summer (due to air conditioning). The classical decomposition methods are unable to capture these seasonal changes over time.
+  \item Occasionally, the values of the time series in a small number of periods may be particularly unusual. For example, the monthly air passenger traffic may be affected by an industrial dispute, making the traffic during the dispute different from usual. The classical method is not robust to these kinds of unusual values.
+\end{itemize}
+
+\subsection{X11 decomposition}
+Another popular method for decomposing quarterly and monthly data is the X11 method which originated in the US Census Bureau and Statistics Canada. This method is based on classical decomposition, but includes many extra steps and features in order to overcome the drawbacks of classical decomposition that were discussed in the previous section. In particular, trend-cycle estimates are available for all observations including the end points, and the seasonal component is allowed to vary slowly over time. X11 also has some sophisticated methods for handling trading day variation, holiday effects and the effects of known predictors. It handles both additive and multiplicative decomposition. The process is entirely automatic and tends to be highly robust to outliers and level shifts in the time series.
+
+The details of the X11 method are described in Dagum \& Bianconcini (2016, Seasonal adjustment methods and real time trend-cycle estimation). Here we will only demonstrate how to use the automatic procedure in R.
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(seasonal)
+elecequip %>% seas(x11="") -> fit
+autoplot(fit) +
+  ggtitle("X11 decomposition of electrical equipment index")
+@
+\caption{An X11 decomposition of the new orders index for electrical equipment.}
+\label{fig:elecequip}
+\end{figure}
+
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+autoplot(elecequip, series="Data") +
+  autolayer(trendcycle(fit), series="Trend") +
+  autolayer(seasadj(fit), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("New orders index") +
+  ggtitle("Electrical equipment manufacturing (Euro area)") +
+  scale_colour_manual(values=c("gray","blue","red"),
+             breaks=c("Data","Seasonally Adjusted","Trend"))
+@
+\caption{Electrical equipment orders: the original data (grey), the trend-cycle component (red) and the seasonally adjusted data (blue).}
+\label{fig:neworder}
+\end{figure}
+
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+fit %>% seasonal() %>% ggsubseriesplot() + ylab("Seasonal")
+@
+\caption{Seasonal sub-series plot of the seasonal component from the X11 decomposition of the new orders index for electrical equipment.}
+\label{fig:neworder2}
+\end{figure}
+
+\subsection{SEATS decomposition}
+``SEATS'' stands for ``Seasonal Extraction in ARIMA Time Series''. This procedure was developed at the Bank of Spain, and is now widely used by government agencies around the world. The procedure works only with quarterly and monthly data. So seasonality of other kinds, such as daily data, or hourly data, or weekly data, require an alternative approach.
+The details are are available in Dagum \& Bianconcini (2016)
+
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+library(seasonal)
+elecequip %>% seas() %>%
+autoplot() +
+  ggtitle("SEATS decomposition of electrical equipment index")
+@
+\caption{A SEATS decomposition of the new orders index for electrical equipment.}
+\label{fig:SEATS}
+\end{figure}
+
+
+\subsection{STL decomposition}
+ STL is a versatile and robust method for decomposing time series. STL is an acronym for ``Seasonal and Trend decomposition using Loess'', while Loess is a method for estimating nonlinear relationships. The STL method was developed by Cleveland, Cleveland, McRae, \& Terpenning (1990).
+ 
+  STL has several advantages over the classical, SEATS and X11 decomposition methods:
+ \begin{itemize}
+  \item Unlike SEATS and X11, STL will handle any type of seasonality, not only monthly and quarterly data.
+  \item The seasonal component is allowed to change over time, and the rate of change can be controlled by the user.
+  \item The smoothness of the trend-cycle can also be controlled by the user.
+  \item It can be robust to outliers (i.e., the user can specify a robust decomposition), so that occasional unusual observations will not affect the estimates of the trend-cycle and seasonal components. They will, however, affect the remainder component.
+\item On the other hand, STL has some disadvantages. In particular, it does not handle trading day or calendar variation automatically, and it only provides facilities for additive decompositions.
+\end{itemize}
+
+ \begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+elecequip %>%
+  stl(t.window=13, s.window="periodic", robust=TRUE) %>%
+  autoplot()
+@
+\caption{The electrical equipment orders (top) and its three additive components obtained from a robust STL decomposition with flexible trend-cycle and fixed seasonality.}
+\label{fig:STL}
+\end{figure}
+The two main parameters to be chosen when using STL are the trend-cycle window (t.window) and the seasonal window (s.window). These control how rapidly the trend-cycle and seasonal components can change. Smaller values allow for more rapid changes. Both t.window and s.window should be odd numbers; t.window is the number of consecutive observations to be used when estimating the trend-cycle; s.window is the number of consecutive years to be used in estimating each value in the seasonal component. The user must specify s.window as there is no default. Setting it to be infinite is equivalent to forcing the seasonal component to be periodic (i.e., identical across years). Specifying t.window is optional, and a default value will be used if it is omitted.
+
+The mstl() function provides a convenient automated STL decomposition using s.window=13, and t.window also chosen automatically. This usually gives a good balance between overfitting the seasonality and allowing it to slowly change over time. But, as with any automated procedure, the default settings will need adjusting for some time series.
+
+As with the other decomposition methods discussed in this book, to obtain the separate components, use the seasonal() function for the seasonal component, the trendcycle() function for trend-cycle component, and the remainder() function for the remainder component. The seasadj() function can be used to compute the seasonally adjusted series.
+
+\subsection{Measuring strength of trend and seasonality}
+
+\begin{itemize}
+  \item The strength of trend as: \[F_T = \mbox{max}\left(0, 1-\frac{\mbox{Var}(R_t)}{\mbox{Var}(T_t+R_t)}\right).\]
+    \item The strength of seasonality as: \[F_S = \mbox{max}\left(0, 1-\frac{\mbox{Var}(R_t)}{\mbox{Var}(S_t+R_t)}\right).\]
+\end{itemize}
+These measures can be useful, for example, when there you have a large collection of time series, and you need to find the series with the most trend or the most seasonality.
+
+\subsection{Forecasting with decomposition}
+While decomposition is primarily useful for studying time series data, and exploring historical changes over time, it can also be used in forecasting.
+\begin{itemize}
+  \item Assuming an additive decomposition, the decomposed time series can be written as $$ x_t = \hat{S}_t + \hat{A}_t, $$ where $\hat{A}_t = \hat{T}_t+\hat{R}_{t}$ is the seasonally adjusted component.
+  \item If a multiplicative decomposition has been used, we can write $$ x_t = \hat{S}_t\hat{A}_t, $$ where $\hat{A}_t = \hat{T}_t\hat{R}_{t}$.
+\end{itemize}
+
+To forecast a decomposed time series, we forecast the seasonal component, $\hat{S}_t$, and the seasonally adjusted component $\hat{A}_t$, separately. It is usually assumed that the seasonal component is unchanging, or changing extremely slowly, so it is forecast by simply taking the last year of the estimated component. In other words, a seasonal naïve method is used for the seasonal component.
+
+To forecast the seasonally adjusted component, any non-seasonal forecasting method may be used. For example, a random walk with drift model or a non-seasonal ARIMA model may be used.
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+fit <- stl(elecequip, t.window=13, s.window="periodic", robust=TRUE)
+
+fit %>% seasadj() %>% naive() %>% autoplot() + ylab("New orders index") +
+  ggtitle("Naive forecasts of seasonally adjusted data")
+@
+\caption{Naive forecasts of the seasonally adjusted data obtained from an STL decomposition of the electrical equipment orders data.}
+\label{fig:forecast_decomp1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+fit %>% forecast(method="naive") %>%
+  autoplot() + ylab("New orders index")
+@
+\caption{Forecasts of the electrical equipment orders data based on a naïve forecast of the seasonally adjusted data and a seasonal naive forecast of the seasonal component, after an STL decomposition of the data.}
+\label{fig:forecast_decomp2}
+\end{figure}
+
+The prediction intervals shown Figure \ref{fig:forecast_decomp2} are constructed in the same way as the point forecasts. That is, the upper and lower limits of the prediction intervals on the seasonally adjusted data are ``reseasonalised'' by adding in the forecasts of the seasonal component. In this calculation, the uncertainty in the forecasts of the seasonal component has been ignored. The rationale for this choice is that the uncertainty in the seasonal component is much smaller than that for the seasonally adjusted data, and so it is a reasonable approximation to ignore it.
+
+\section{ARIMA models using `forecast' package.}
+
+ARIMA is an acronym for AutoRegressive Integrated Moving Average model (in this context, "integration" is the reverse of differencing). The full model can be written as \begin{equation} x_{t} = c + \phi_1 x_{t-1} + \cdots + \phi_p x_{t-p} + \theta_1\omega_{t-1} + \cdots + \theta_q\omega_{t-q} + \omega_{t}, \end{equation} where $x_{t}$ is the differenced series (it may have been differenced more than once). The ``predictors" on the right hand side include both lagged values of $x_t$ and lagged errors. Many of the models we have already discussed are special cases of the ARIMA model, as shown below.
+\begin{itemize}
+  \item White noise:	ARIMA(0,0,0)
+  \item Random walk:	ARIMA(0,1,0) with no constant
+  \item Random walk with drift:	ARIMA(0,1,0) with a constant
+  \item Autoregression:	ARIMA($p$,0,0)
+  \item Moving average:	ARIMA(0,0,$q$)
+\end{itemize}
+
+\subsection{auto.arima() function}
+
+The auto.arima() function in R uses a variation of the Hyndman-Khandakar algorithm, which combines unit root tests, minimization of the AICc and MLE to obtain an ARIMA model. The algorithm follows these steps.
+
+{\bf Hyndman-Khandakar algorithm for automatic ARIMA modelling}
+
+\begin{itemize}
+  \item The number of differences $0 \le d\le 2$ is determined using repeated KPSS tests.
+\item The values of $p$ and $q$ are then chosen by minimizing the AICc after differencing the data $d$ times. Rather than considering every possible combination of $p$ and $q$, the algorithm uses a stepwise search to traverse the model space. (a) Four initial models are fitted: * ARIMA$(0,d,0)$, * ARIMA$(2,d,2)$, * ARIMA$(1,d,0)$, * ARIMA$(0,d,1)$. A constant is included unless $d=2$. If $d \le 1$, an additional model * ARIMA$(0,d,0)$ without a constant is also fitted. (b) The best model (with the smallest AICc value) fitted in step (a) is set to be the "current model". (c) Variations on the current model are considered: * vary $p$ and/or $q$ from the current model by $\pm1$; * include/exclude $c$ from the current model. The best model considered so far (either the current model or one of these variations) becomes the new current model. (f) Repeat Step 2(c) until no lower AICc can be found.
+\end{itemize}
+
+The arguments to auto.arima() provide for many variations on the algorithm. What is described here is the default behaviour.
+
+The default procedure uses some approximations to speed up the search. These approximations can be avoided with the argument approximation=FALSE. It is possible that the minimum AICc model will not be found due to these approximations, or because of the use of a stepwise procedure. A much larger set of models will be searched if the argument stepwise=FALSE is used. See the help file for a full description of the arguments.
+
+\subsection{Choosing our own model}
+If you want to choose the model yourself, use the Arima() function in R. There is another function arima() in R which also fits an ARIMA model. However, it does not allow for the constant $c$ unless $d=0$, and it does not return everything required for other functions in the forecast package to work. Finally, it does not allow the estimated model to be applied to new data (which is useful for checking forecast accuracy). Consequently, it is recommended that Arima() be used instead.
+
+{\bf Modeling procedure}: When fitting an ARIMA model to a set of (non-seasonal) time series data, the following procedure provides a useful general approach.
+\begin{itemize}
+  \item Plot the data and identify any unusual observations.
+\item If necessary, transform the data (using a Box-Cox transformation) to stabilize the variance.
+\item If the data are non-stationary, take first differences of the data until the data are stationary.
+\item Examine the ACF/PACF: Is an ARIMA($p,d,0$) or ARIMA($0,d,q$) model appropriate? Or use EACF: Is an ARIMA($p,d,q$) appropriate? If the first difference was used in step 3, $d=1$ in this step.
+\item Try your chosen model(s), and use the AICc to search for a better model.
+\item Check the residuals from your chosen model by plotting the ACF of the residuals, and doing a portmanteau test of the residuals. If they do not look like white noise, try a modified model.
+\item Once the residuals look like white noise, calculate forecasts.
+\end{itemize}
+The automated algorithm only takes care of steps 3--5. So even if you use it, you will still need to take care of the other steps yourself.
+
+
+
+\subsection{Seasonally adjusted electrical equipment orders data }
+\begin{itemize}
+  \item Seasnally adjusted data: If the seasonal component is removed from the original data, the resulting values are the “seasonally adjusted” data. For an additive decomposition, the seasonally adjusted data are given by $x_t-S_t$, and for multiplicative data, the seasonally adjusted values are obtained using $x_t/S_t$. If the variation due to seasonality is not of primary interest, the seasonally adjusted series can be useful. For example, monthly unemployment data are usually seasonally adjusted in order to highlight variation due to the underlying state of the economy rather than the seasonal variation. 
+  \item Seasonally adjusted series contain the remainder component as well as the trend-cycle. Therefore, they are not ``smooth'', and ``downturns'' or ``upturns'' can be misleading. If the purpose is to look for turning points in a series, and interpret any changes in direction, then it is better to use the trend-cycle component rather than the seasonally adjusted data.
+\end{itemize}
+
+The following gives an example of how to use ARIMA models for a seasonally ajdusted dataset.
+\begin{itemize}
+  \item The time plot shows some sudden changes, particularly the big drop in 2008/2009. These changes are due to the global economic environment. Otherwise there is nothing unusual about the time plot and there appears to be no need to do any data adjustments.
+  \item There is no evidence of changing variance, so we will not do a Box-Cox transformation.
+  \item The data are clearly non-stationary, as the series wanders up and down for long periods. Consequently, we will take a first difference of the data. The differenced data are shown in Figure \ref{fig:ARIMA4}. These look stationary, and so we will not consider further differences.
+  \item The PACF shown in Figure \ref{fig:ARIMA4} is suggestive of an AR(3) model. So an initial candidate model is an ARIMA(3,1,0). There are no other obvious candidate models.
+  \item We fit an ARIMA(3,1,0) model along with variations including ARIMA(4,1,0), ARIMA(2,1,0), ARIMA(3,1,1), etc. Of these, the ARIMA(3,1,1) has a slightly smaller AICc value.
+  \item The ACF plot of the residuals (Figure \ref{fig:ARIMA5}) from the ARIMA(3,1,1) model shows that all correlations are within the threshold limits, indicating that the residuals are behaving like white noise. A portmanteau test returns a large p-value, also suggesting that the residuals are white noise.
+  \item Forecasts from the chosen model are shown in Figure Figure \ref{fig:ARIMA6}.
+\end{itemize}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+elecequip %>% stl(s.window='periodic') %>% seasadj() -> eeadj
+autoplot(eeadj)
+@
+\caption{Seasonally adjusted electrical equipment orders index in the Euro area.}
+\label{fig:ARIMA3}
+\end{figure}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+eeadj %>% diff() %>% ggtsdisplay(main="")
+@
+\caption{Time plot and ACF and PACF plots for the differenced seasonally adjusted electrical equipment data.}
+\label{fig:ARIMA4}
+\end{figure}
+
+<<Google stock price forecast series>>=
+(fit <- Arima(eeadj, order=c(3,1,1)))
+@
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+checkresiduals(fit)
+@
+\caption{Residual plots for the ARIMA(3,1,1) model.}
+\label{fig:ARIMA5}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+autoplot(forecast(fit))
+@
+\caption{Forecasts for the seasonally adjusted electrical orders index.}
+\label{fig:ARIMA6}
+\end{figure}
+
+
+
+\subsection{Some other plotting functions}
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+cbind("Sales ($million)" = a10/monthdays(a10),
+      "Monthly log sales" = log(a10/monthdays(a10)),
+      "Annual change in log sales" = diff(log(a10/monthdays(a10)),12)) %>%
+  autoplot(facets=TRUE) +
+    xlab("Year") + ylab("") +
+    ggtitle("Daily average antidiabetic drug sales for each month")
+@
+\caption{Logs and seasonal differences of the A10 (antidiabetic) daily average sales data for each month. The logarithms stabilise the variance, while the seasonal differences remove the seasonality and trend.}
+\label{fig:ARIMA1}
+\end{figure}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+cbind("Billion kWh" = usmelec/monthdays(usmelec),
+      "Logs" = log(usmelec/monthdays(usmelec)),
+      "Seasonally\n differenced logs" =
+        diff(log(usmelec/monthdays(usmelec)),12),
+      "Doubly\n differenced logs" =
+        diff(diff(log(usmelec/monthdays(usmelec)),12),1)) %>%
+  autoplot(facets=TRUE) +
+    xlab("Year") + ylab("") +
+    ggtitle("Daily average US net electricity generation for each month")
+@
+\caption{Top panel: US net electricity generation (billion kWh). Other panels show the same data after transforming and differencing.}
+\label{fig:ARIMA2}
+\end{figure}
+
+\newpage
+\section{SARIMA models using `forecast' package.}
+
+A SARIMA model is formed by including additional seasonal terms in the ARIMA models. 
+The seasonal part of the model consists of terms that are very similar to the non-seasonal components of the model, but involve backshifts of the seasonal period. For example, an ARIMA(1,1,1)(1,1,1)$_{4}$ model (without a constant) is for quarterly data ($m=4$), and can be written as $$ (1 - \phi_{1}B)(1 - \Phi_{1}B^{4}) (1 - B) (1 - B^{4})y_{t} = (1 + \theta_{1}B) (1 + \Theta_{1}B^{4})\omega_{t}. $$
+The modelling procedure is almost the same as for non-seasonal data, except that we need to select seasonal AR and MA terms as well as the non-seasonal components of the model. The process is best illustrated via examples.
+\subsection{ Analysis of European quarterly retail trade}
+
+\begin{itemize}
+  \item We will describe the seasonal ARIMA modelling procedure using quarterly European retail trade data from 1996 to 2011. The data are plotted in Figure \ref{fig:SARIMA1}.
+  \item The data are clearly non-stationary, with some seasonality, so we will first take a seasonal difference. The seasonally differenced data are shown in Figure \ref{fig:SARIMA2}.
+  \item The seasonally differenced data also appear to be non-stationary, so we take an additional first difference, shown in Figure \ref{fig:SARIMA3}.
+  \item Our aim now is to find an appropriate ARIMA model based on the ACF and PACF shown in Figure  \ref{fig:SARIMA3}. The significant spike at lag 1 in the ACF suggests a non-seasonal MA(1) component, and the significant spike at lag 4 in the ACF suggests a seasonal MA(1) component. Consequently, we begin with an ARIMA(0,1,1)(0,1,1)$_4$ model, indicating a first and seasonal difference, and non-seasonal and seasonal MA(1) components. The residuals for the fitted model are shown in Figure \ref{fig:SARIMA4}. (By analogous logic applied to the PACF, we could also have started with an ARIMA(1,1,0)(1,1,0)$_4$ model.)
+  \item Both the ACF and PACF show significant spikes at lag 2, and almost significant spikes at lag 3, indicating that some additional non-seasonal terms need to be included in the model. The AICc of the ARIMA(0,1,2)(0,1,1)$_4$ model is 74.36, while that for the ARIMA(0,1,3)(0,1,1)$_4$ model is 68.53. We tried other models with AR terms as well, but none that gave a smaller AICc value. Consequently, we choose the ARIMA(0,1,3)(0,1,1)$_4$ model. Its residuals are plotted in Figure \ref{fig:SARIMA5}. All the spikes are now within the significance limits, so the residuals appear to be white noise. The Ljung-Box test also shows that the residuals have no remaining autocorrelations.
+  \item We could have used auto.arima() to do most of this work for us. It would have selected a different model (with a larger AICc value). auto.arima() takes some short-cuts in order to speed up the computation, and will not always give the best model. The short-cuts can be turned off, and then it will sometimes return a different model. This time it returned the same model we had identified.
+\end{itemize}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+autoplot(euretail) + ylab("Retail index") + xlab("Year")
+@
+\caption{Quarterly European retail trade data from 1996 to 2011.}
+\label{fig:SARIMA1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+euretail %>% diff(lag=4) %>% ggtsdisplay
+@
+\caption{Seasonal differenced quarterly European retail trade data from 1996 to 2011.}
+\label{fig:SARIMA2}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+euretail %>% diff(lag=4) %>% diff() %>% ggtsdisplay
+@
+\caption{Seasonal differenced and first differenced quarterly European retail trade data from 1996 to 2011.}
+\label{fig:SARIMA3}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+euretail %>%
+  Arima(order=c(0,1,1), seasonal=c(0,1,1)) %>%
+  residuals %>%
+  ggtsdisplay
+@
+\caption{Residuals from the fitted ARIMA(0,1,1)(0,1,1)$_4$ model for the European retail trade index data.}
+\label{fig:SARIMA4}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+
+fit3 <- Arima(euretail, order=c(0,1,3), seasonal=c(0,1,1))
+checkresiduals(fit3)
+@
+\caption{Residuals from the fitted ARIMA(0,1,3)(0,1,1)$_4$ model for the European retail trade index data.}
+\label{fig:SARIMA5}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+
+fit3 %>% forecast(h=12) %>% autoplot()
+@
+\caption{Forecasts of the European retail trade index data using the ARIMA(0,1,3)(0,1,1)$_4$model. 80\% and 95\% prediction intervals are shown.}
+\label{fig:SARIMA5}
+\end{figure}
+
+<<Auto ARIMA>>=
+auto.arima(euretail)
+@
+
+<<Auto ARIMA>>=
+auto.arima(euretail, stepwise=FALSE, approximation=FALSE)
+@
+
+\subsection{Corticosteroid drug sales in Australia}
+Consider data `h02' dataset and try to forecast monthly corticosteroid drug sales in Australia. 
+This is one of the project datasets you can work on.
+
+
+\newpage
+\end{document}
+
+
+

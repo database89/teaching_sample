@@ -1,0 +1,444 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newtheorem{exmp}{Example}[section]
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Estimation, forecasting, and diagnostics of ARIMA models}
+\date{}
+\maketitle
+\section{Estimation}
+
+
+Throughout this section, we assume that we have $n$ observations, $x_1,\dots,x_n$, and want to fit an ARMA (p,q) process in which, initially, the order parameters $p$ and $q$ are known. Our goal is to estimate the parameters, $\phi_1,\dots, \phi_p$, $\theta_1,\dots,\theta_q$ and $\sigma^2$. 
+In typical softwares like R, there are three main estimation methods:
+\begin{itemize}
+  \item Method of moments--apply to AR models.
+  \item Maximum likelihood method--apply to AR, MA, and ARMA models--require Normality assumption but the assumption can be relaxed under large sample size.
+  \item Conditional least square methods--apply to AR, MA, and ARMA models--require some initial value assumptions.
+\end{itemize}
+
+\subsection{Method of moments}
+The idea behind moment estimators is that of equating population moments to sample moments and then solving for the parameters in terms of the sample moments. 
+
+{\bf Estimator of the mean}: If the mean of the time series $x_t$ is not zero, the estimator for mean $\mu$ is $\bar{x}=\sum_{i=1}^n x_i/n$.
+
+
+
+\begin{exmp} Find the MOM estimators for $AR(p)$,
+\[x_t=\phi_1x_{t-1}+\dots+\phi_px_{t-p}+\omega_t\]
+\end{exmp}
+\vspace*{3in}
+
+\noindent{\bf MOM estimators for AR(p)}: Parameters for zero-mean AR(p) can be solved from the followig equations
+\begin{eqnarray*}
+\gamma_h &=& \phi_1\gamma_{h-1} + \ldots + \phi_p\gamma_{h-p}, h=1,2,\ldots,p\\
+\sigma^2_{\omega} &=& \gamma_0-\phi_1\gamma_1- \ldots - \phi_p\gamma_p
+\end{eqnarray*}
+ In Matrix Notation: 
+\[
+\boldsymbol{\Gamma_p\phi} = \boldsymbol{\gamma_p}, \sigma^2_{\omega} =\gamma_0-\boldsymbol{\phi}'\boldsymbol{\gamma_p}
+\]
+Where, $\boldsymbol{\Gamma_p} = \left\{\gamma(k-j)\right\}_{j,k=1}^p$, $\boldsymbol{\phi}=(\phi_1,\phi_2, \ldots,\phi_p)$, and $\boldsymbol{\gamma_p}=(\gamma_1,\gamma_2, \ldots, \gamma_p)$.
+
+ Solving For $\boldsymbol{\phi}$:
+\[
+\boldsymbol{\phi} = \boldsymbol{\Gamma_p}^{-1}\boldsymbol{\gamma_p}
+\]
+ Then, we can plug in estimators of  $\boldsymbol{\Gamma_p}^{-1}$ and $\boldsymbol{\gamma_p}$, yielding :
+\[
+\widehat{\boldsymbol{\phi}} = \widehat{\boldsymbol{\Gamma_p}}^{-1}\widehat{\boldsymbol{\gamma_p}}
+\]
+and
+\[
+\widehat{\sigma^2_{\omega}} =\widehat{\gamma}_0-\widehat{\boldsymbol{\phi}}'\widehat{\boldsymbol{\gamma_p}}
+\]
+
+\noindent{\bf Large Sample Results for Yule-Walker Estimators}: The asymptotic ($n\to \infty$) behavior of the Yule-Walker estimators in the cas of casual $AR(p)$ processes is as follows: 
+\[
+\sqrt{n}\left(\widehat{\boldsymbol{\phi}}-\boldsymbol{\phi}\right) \xrightarrow{d} N(\boldsymbol{0},\sigma^2_{\omega}\boldsymbol{\Gamma}_p^{-1})
+\]
+and 
+\[
+\widehat{\sigma}^2_{\omega} \xrightarrow{p} \sigma^2_{\omega}
+\]
+ This asymptotic results comes from the asymptotic results about the sample ACF. These estimators are ``asymptotically efficient''. In small samples, crazy stuff can happen (values outside of the parameter space). We can, however, use this to construct hypothesis tests and confidence intervals for the elements of $\boldsymbol{\phi}$.
+In $R$, use the {\tt ar.yw} function. 
+
+
+
+
+
+
+\begin{exmp} Yule-Walker estimation of the recruitment series. We fit an AR (2) model with an intercept to the recruitment series, i.e., the model is $x_t=\mu+\phi_1 x_{t-1}+\phi_2 x_{t-2}+\omega_t$.
+\end{exmp}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+par(mfrow=c(2,2))
+plot.ts(rec,xlab="Recruitment (number of new fish) series")
+acf(ts(rec),lag.max=20)
+acf(ts(rec),lag.max=20,ci.type="ma")
+pacf(ts(rec),lag.max=20)
+@
+\caption{Recruitment (number of new fish) series and its sample ACF.}
+\label{fig:ARpacf1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+library(TSA)
+subset=armasubsets(y=ts(rec),nar=3,nma=3,y.name='test',ar.method='ols')
+plot(subset)
+@
+\caption{Recruitment (number of new fish) series and its model selection use BIC.}
+\label{fig:recruitment}
+\end{figure}
+
+
+
+<<yw>>=
+fit = ar.yw(rec, order=2)
+fit
+Mod(polyroot(c(1,-1.3316,0.4445)))
+@
+
+
+\begin{exmp}Consider the $MA(1)$ model:
+\[
+x_t = \omega_t + \theta \omega_{t-1}
+\]
+\end{exmp}
+This is equivilent to: 
+\[
+x_t = \sum_{j=1}^{\infty}(-\theta)^jx_{t-j} + \omega_t
+\]
+ From this, we can show that: 
+\begin{eqnarray*}
+\gamma(0) &=& \sigma_{\omega}^2(1+\theta^2)\\
+\gamma(1) &=& \sigma^2_{\omega}\theta
+\end{eqnarray*}
+
+In terms of the acf
+\begin{eqnarray*}
+\rho(1) &=& \frac{\gamma(1)}{\gamma(0)} = \frac{\theta}{1+\theta^2}
+\end{eqnarray*}
+Making our MOM estimator satisfy, in terms of the sample acf $\hat{\rho}(h)$.
+\begin{eqnarray*}
+\hat{\rho}(1) & = & \frac{\hat{\theta}_{MOM}}{1+\hat{\theta}^2_{MOM}}\\
+0 & = & \hat{\rho}(1)-\hat{\theta}_{MOM} + \hat{\rho}(1)\hat{\theta}^2_{MOM} 
+\end{eqnarray*}
+ So, two solutions can exist (choose the invertible one).
+ If $|\hat{\rho}(1)|<.5$, a real solution exists, if not, try another estimation strategy. 
+For higher-order MA models, the method of moments quickly gets complicated. The resulting equations are highly nonlinear in the $\theta$'s, and their solution would of necessity be numerical.
+
+\subsection{Conditional least squares estimation}
+\begin{exmp}
+Consider the first-order AR model where \[x_t-\mu=\phi_1(x_{t-1}-\mu)+\omega_t.\]
+Let \[S_c(\phi_1,\mu)=\sum_{t=2}^n [(x_t-\mu)-\phi_1(x_{t-1}-\mu)]^2.\]
+ Since only $x_1,\dots,x_n$ are observed, we can only sum from $t=2$ to $t=n$.  According to the principle of least squares, we estimate $\phi_1$ and $\mu$ by the respective values that minimize $S_c(\phi_1,\mu)$ given the observed values of $x_1,\dots, x_n$.
+\end{exmp}
+\vspace{2in}
+
+\begin{exmp}
+Consider an AR(p) model. Consider the conditional sum of squares as \[S_c(\boldsymbol{\phi},\mu)=\sum_{t=p+1}^n [(x_t-\mu)-\phi_1(x_{t-1}-\mu)-\dots-\phi_p(x_{t-p}-\mu)]^2\]
+According to the principle of least squares, we estimate $\boldsymbol{\phi}$ and $\mu$ by the respective values that minimize $S_c(\boldsymbol{\phi},\mu)$ given the observed values of $x_1,\dots, x_n$.
+\end{exmp}
+\vspace{2in}
+<<simulate AR series>>=
+library(astsa)
+rec.CSS=arima(rec,order=c(2,0,0),method="CSS")
+
+rec.CSS
+
+@
+
+
+\noindent For the general ARMA (p,q) model, define the conditional sum of squares as 
+\[S_c(\boldsymbol{\phi},\mu,\boldsymbol{\theta})=\sum_{t=p+1}^n [(x_t-\mu)-\phi_1(x_{t-1}-\mu)-\dots-\phi_p(x_{t-p}-\mu)-\theta_1\omega_{t-1}-\dots-\theta_q \omega_{t-q}]^2\]
+where $\omega_{p+1-q}=\omega_{p+2-q}=\dots=\omega_p = 0$, $\omega_{p+1} = x_t-\mu-\phi_1(x_{t-1}-\mu)-\dots-\phi_p(x_{t-p}-\mu)$, $\omega_{p+2} = x_t-\mu-\phi_1(x_{t-1}-\mu)-\dots-\phi_p(x_{t-p}-\mu)-\theta_1\omega_{p+1}$,$\cdots$.Minimize $S_c(\boldsymbol{\phi},\mu,\boldsymbol{\theta})$ numerically to obtain the conditional least square estimates of all the parameters. For parameter sets $\theta_1,\dots, \theta_q$ corresponding to invertible models, the start-up values $\omega_p,\omega_{p-1},\dots, \omega_{p+1-q}$ will have very little influence on the final estimates of the parameters for large samples. For series of moderate length and also for stochastic seasonal models to be discussed later, the start-up values $\omega_p=\omega_{p-1}=\dots=\omega_{p+1-q}=0$ will have a more pronounced effect on the final estimates for the parameters. The variance of the error term $\sigma_{\omega}^2$ is estimated by $S_c(\boldsymbol{\phi},\mu,\boldsymbol{\theta})/(n-p)$.
+
+\begin{exmp}
+Consider an ARMA(1,1) model. Show the conditional least square sum.
+\end{exmp}
+\vspace{2in}
+
+
+\subsection{Maximum likelihood method}
+For any set of observations, $x_1,\dots, x_n$, the likelihood function $L$ is defined to be the joint probability density of obtaining the data actually observed. However, it is considered as a function of the unknown parameters in the model with the observed data held fixed. The maximum likelihood estimators are then defined as those values of the parameters for which the data actually observed are most likely, that is, the values that maximize the likelihood function. 
+
+\begin{exmp}
+Consider an $AR(1)$ Model with a mean term:
+\[
+x_t = \mu + \phi(x_{t-1}-\mu) + \omega_t
+\]
+\end{exmp}
+Note that: 
+\[
+f(x_t|x_{t-1},\mu,\sigma^2_{\omega}) = N\left(\mu+\phi(x_{t-1}-\mu),\sigma_{\omega}^2\right)
+\]
+for $t=2,3,\ldots$ This makes the Likelihood:
+\begin{eqnarray*}
+L(\mu,\phi,\sigma^2_{\omega}|\boldsymbol{x}) & = & f(x_1,x_2,\ldots, x_n|\mu,\phi,\sigma^2_{\omega})\\
+& = & f(x_1)f(x_2|x_1)\ldots f(x_n|x_{n-1})\\
+& = & f(x_1)\prod_{i=2}^nf(x_i|x_{i-1})
+\end{eqnarray*} 
+
+Recall 
+\[
+x_1 \sim N\left(\mu,\frac{\sigma^2_{\omega}}{1-\phi^2}\right)
+\]
+
+The likelihood can be expressed as:
+{\footnotesize
+\begin{eqnarray*}
+L(\mu,\phi,\sigma^2_{\omega}|\boldsymbol{x}) 
+& = & f(x_1)\prod_{i=2}^nf(x_i|x_{i-1})\\
+& = & \left(2\pi\frac{\sigma^2_{\omega}}{1-\phi^2}\right)^{.5}
+\exp \left[\frac{-(1-\phi)^2(x_1-\mu)^2}{2\sigma^2_{\omega}}\right]\times\\
+&& \prod_{i=2}^n\left(2\pi\sigma^2_{\omega}\right)^{-.5}\exp \left[\frac{-(x_i-\mu-\phi(x_{i-1}-\mu))^2}{2\sigma^2_{\omega}}\right]\\
+& = &  \left({1-\phi^2}\right)^{.5}\left(2\pi\sigma^2_{\omega}\right)^{-n/2}\times\\
+&& \exp\left[\frac{-1}{2\sigma^2_{\omega}}\left((1-\phi^2)(x_1-\mu^2)+\sum_{i=2}^n(x_i-\mu-\phi(x_{i-1}-\mu)^2)\right)\right]
+\end{eqnarray*}
+}
+ 
+
+
+We proceed with maximizing $L(\cdot)$ (wrt $\sigma^2_{\omega},\phi, \mbox{ and } \mu)$ directly which is typically done numerically. The textbook also gives large sample results for MLE estimates.
+
+
+
+We can use the {\tt arima} function in $R$ to estimate these parameters.
+The {\tt method} option selects the method used. {\tt method="ML"} gives the MLEs and {\tt method="CSS"} gives the least squares estimators.
+ 
+<<simulate AR series>>=
+library(astsa)
+rec.mle=arima(rec,order=c(2,0,0),method="ML")
+rec.CSS=arima(rec,order=c(2,0,0),method="CSS")
+rec.mle
+rec.CSS
+
+@
+
+
+\begin{exmp}
+Consider MLE estimates for an ARMA(p,q) model.
+\end{exmp}
+
+\vspace{2in}
+
+\section{Prediction}
+Two types of models for time series (after transformation):
+\begin{itemize}
+  \item $x_t = \mu_t+y_t$ and model $y_t$ using ARMA models.
+  \item Model $x_t$ using ARIMA models.
+\end{itemize}
+
+\noindent The goal is to estimate $x_{n+m}$ from a sample of $\boldsymbol{x}_n
+  = (x_1,\ldots, x_n)$. We will first assume that all parameters are known. Let $\boldsymbol{x}_n =(x_1,x_2,\dots,x_n)$ and $g(\boldsymbol{x}_n)$ be a function of $\boldsymbol{x}$. We want to choose $g(\boldsymbol{x}_n)$ to minimize the mean square prediction error (MSPE):
+\[
+{\rm E}\left[\left(x_{n+m}-g(\boldsymbol{x}_n)\right)^2\right]
+\]
+Then we use $\tilde{x}_{n+m} = g(\boldsymbol{x}_n)$ as your prediction. 
+We can show that the minimizor is: 
+\[
+g(\boldsymbol{x}_n) = {\rm E}\left[x_{n+m}\Big| \boldsymbol{x}_n\right]
+\]
+
+\vspace*{3in}
+
+
+\begin{exmp}Consider prediction for simple linear regression.
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}Consider prediction for AR(1) model.
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}Consider prediction for MA(1) model.
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}Consider prediction for ARMA(p,q) model.
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}Consider prediction for ARIMA(1,1,1) model.
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}Consider prediction for ARIMA(p,d,q) model.
+\end{exmp}
+\vspace*{3in}
+
+
+
+\subsection{Linear predictors}
+Some programs restrict attention to predictors that are linear functions of the data, that is, predictors of the form
+\[
+\tilde{x}_{n+m}= \alpha_0 + \sum_{j=1}^n\alpha_jx_j
+\]
+where the $\alpha_i$ are real numbers. The linear predictor with the smallest MSPE is called the Best Linear Predictor (BLP). Thus, to find the BLP, we need to find the $\boldsymbol{\alpha} = (\alpha_0,\ldots, \alpha_n)$ which minimizes:
+\[
+{\rm E}\left[\left(x_{n+m}-\alpha_0 - \sum_{j=1}^n\alpha_jx_j\right)^2\right]
+\]
+
+\vspace{1in}
+
+{\bf Best Linear Predictor For Stationary Processes}: Given data $x_1, \ldots, x_n$, the best linear predictor (BLP), $\tilde{x}_{n+m} = \alpha_0 + \sum_{j=1}^n\alpha_jx_j$ of $x_{n+m}$ , for $m\ge 1$ is found by solving 
+\[
+{\rm E}\left[\left(x_{n+m}-\tilde{x}_{n+m}\right)x_k\right] = 0,k=0,1,2,\ldots, n
+\]
+where $x_0=1$, for $\alpha_0, \alpha_1,\ldots, \alpha_n$. The equations are called the ``prediction equations'' and are used to solve for the coefficents $\left\{\alpha_0, \alpha_1,\ldots, \alpha_n\right\}$. Also, if $E(x_t)=\mu=0$ then $\alpha_0=0$. Without loss of generality, was assume $\alpha_0=0$.
+
+\vspace{1in}
+
+{\bf One-step-ahead prediction for zero mean time series}: we wish to predict $x_{n+1}$, the the estimator is of the form: 
+\[
+\tilde{x}_{n+1} = \phi_{n1}x_n+\phi_{n2}x_{n-1}+\ldots+\phi_{nn}x_1
+\]
+That is, we set $\alpha_k=\phi_{n,n+1-k}$. Using Property 3.3 the coefficients satisfy
+\[
+{\rm E}\left[\left(x_{n+1}-\sum_{j=1}^n\phi_{nj}x_{n+1-j}\right)x_{n+1-k}\right] = 0, k=1,2,\ldots,n
+\]
+Applying the expectation: 
+\[
+\sum_{j=1}^n\phi_{nj}\gamma(k-j) = \gamma(k), k=1,2,\ldots,n
+\]
+In Matrix Notation, we need to solve
+\[
+\Gamma_n\boldsymbol{\phi}_n = \boldsymbol{\gamma}_n
+\]
+Where, 
+\begin{itemize}
+\item $\Gamma_n = \left\{\gamma(k-j)\right\}_{j,k=1}^n$, $\boldsymbol{\phi}_n =(\phi_1,\ldots, \phi_n)'$, and $\boldsymbol{\gamma}_n=(\gamma(1),\ldots, \gamma(n))'$
+\item $\Gamma_n$ is NND. If $\Gamma_n$ is singular, many solutions exist, though $\tilde{x}_{n+1}$ is unique (Projection Theorem). If $\Gamma_n$ is non-singular, then:
+\[
+\boldsymbol{\phi}_n = \Gamma_n^{-1}\boldsymbol{\gamma}_n
+\]
+For ARMA models, the fact that $\sigma^2_{\omega}>0$ and $\gamma(h) \to 0$ is enough to force $\Gamma_n$ to be PD (and hence non-singular).  Making our prediction:
+\[
+\tilde{x}_{n+1}=\boldsymbol{\phi}'_n\boldsymbol{x}_n = \boldsymbol{\gamma}_n'\Gamma_n^{-1}\boldsymbol{x}_n
+\]
+\end{itemize}
+
+
+\vspace{3in}
+
+The prediction error for one-step-ahead prediction is
+
+\begin{eqnarray*}
+P_{n+1}^n& = &{\rm E}\left[\left(x_{n+1}-\tilde{x}_{n+1}\right)^2\right] \\
+& = &\gamma(0)-\boldsymbol{\gamma}_n'\Gamma_n^{-1}\boldsymbol{\gamma}_n\\
+\end{eqnarray*}
+
+\vspace{2in}
+
+
+{\bf m-step-ahead prediction}: we wish to predict $x_{n+m}$, the the estimator is of the form: 
+\[
+\tilde{x}_{n+m} = \phi_{n1}^{(m)}x_n+\phi_{n2}^{(m)}x_{n-1}+\ldots+\phi_{nn}^{(m)}x_1
+\]
+In Matrix Notation, 
+\[
+\boldsymbol{\phi}_n^{(m)} = \Gamma_n^{-1}\boldsymbol{\gamma}_n^{(m)}
+\]
+where $\Gamma_n = \left\{\gamma(k-j)\right\}_{j,k=1}^n$, $\boldsymbol{\phi}_n =(\phi_1,\ldots, \phi_n)'$, and $\boldsymbol{\gamma}_n^{(m)}=(\gamma(m),\ldots, \gamma(m+n-1))'$.
+The mean square m-step-ahead prediction error is 
+\begin{eqnarray*}
+P_{n+m}^n& = &{\rm E}\left[\left(x_{n+m}-\tilde{x}_{n+m}\right)^2\right] \\
+& = &\gamma(0)-\boldsymbol{\gamma}_n^{(m)'}\Gamma_n^{-1}\boldsymbol{\gamma}_n^{(m)}\\
+\end{eqnarray*}
+
+
+\vspace{3in}
+
+
+
+
+
+{\bf Forecasting }
+\begin{itemize}
+\item To assess the precision of the forecasts, prediction intervals are typically calculated along with the forecasts. In general, $(1-\alpha)$ prediction intervals are of the form \[\tilde{x}_{n+m} +c_{\alpha/2}\sqrt{P_{n+m}^n}\]
+where $c_{\alpha/2}$ is chosen to get the desired degree of confidence. If the process is Gaussian, then choosing $c_{\alpha/2}=2$ will yield an approximating 95\% prediction interval for $x_{n+m}$.
+
+\item For general $ARMA$ or $MA$ models, the predictions do not have a nice form.  Instead, a variety of algorithms exist to find them. Those algorithms also can estimate the PACF (the predictors are based on the PACF values). 
+\item ARMA forecasts quickly settle to the mean $\mu$ with a constant prediction error  as the forecast horizon $m$ grows.
+
+\item In practice, we do not know the true parameters. We plug in our estimates in for the parameters. We will use the {\tt predict} function in $R$ where the option {\tt n.ahead} will lest us set $m$. 
+\end{itemize}
+
+<<simulate AR series>>=
+library(astsa)
+nrec=as.vector(rec)
+rec.fit = arima(nrec,order=c(2,0,0),include.mean=TRUE,method="ML")
+rec.pr = predict(rec.fit, n.ahead=24) 
+U = rec.pr$pred + 2*rec.pr$se 
+L = rec.pr$pred - 2*rec.pr$se 
+@
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+month = 360:453
+plot(month, nrec[month],xlim=c(360,480),ylim=c(0,150))
+fitted=nrec+residuals(rec.fit)
+lines(month,fitted[month],col="red",lwd=1)
+lines(rec.pr$pred, col="red", type="o")
+lines(U, col="blue", lty="dashed")
+lines(L, col="blue", lty="dashed")
+@
+\caption{Forecasts of the fish recruitment series.}
+\label{fig:Forecast}
+\end{figure}
+
+
+\section{Diagnostics}
+What are standardized residuals in a time series framework?  One of the things that we need to look at when we look at the diagnostics from a regression fit is a graph of the standardized residuals.   Let's review what this is for regular regression where the standard deviation is $\sigma$.  The standardized residual at observation $i$ \[\frac{y_i-\beta_0-\sum_{j=1}^p \beta_jx_{ij}}{\sigma}\]
+should be $N(0,1)$. Using data, we examine \[\frac{y_i-\hat{y}_i}{\sqrt{var(y_i-\hat{y}_i)}}\]
+
+\vspace{0.1in}
+
+{\bf Time series Residuals} are random quantities which describe the part of the variation in $\{x_t\}$ that is not explained by the fitted model. We consider standardized residuals typically,
+\[\frac{x_t-\tilde{x}_t}{\sqrt{P_t^{t-1}}}\]
+where $\tilde{x}_t$ is the one-step ahead prediction of $x_t$: $E(x_t|x_{t-1},x_{t-2},\dots)$ and $P_t^{t-1} = E[(x_t-\tilde{x}_t)^2]$.
+
+
+\begin{itemize}
+\item If the model is correctly specified, then the standardized residuals should behave roughly like an iid normal white noise process with mean zero and variance one.
+\item From the standard normal distribution, we know then that most of the standardized residuals should fall between -3 and 3.
+\item  Standardized residuals that fall outside this range could correspond to observations which are ``outlying'' in some sense; we will make this more concrete later. If many standardized residuals fall outside $(-3, 3)$, this suggests that the error process  has a heavy-tailed distribution (common in financial time series applications).
+\end{itemize}
+
+
+Check independence assumption:
+ \begin{itemize}
+\item Time series plots of the residuals can be helpful to detect patterns which violate the independence assumption.
+\item ACF of the residuals (The residuals from a model fit will not have properties of a white nose sequence and the variance of act at lag h could be much less than 1/n).
+\item The Ljung-Box-Test
+\[Q=n(n+2) \sum_{h=1}^H \frac{\hat{\rho}_e^2(h)}{n-h}\]
+  where $\hat{\rho}_e^2(h)$ is the sample autocorrelation of the standardized residuals at lag h. This statistic can be used to examine residuals from a time series model in order to see if all underlying population autocorrelations for the errors may be 0 (up to a specified point). 
+  
+  \begin{itemize}
+  \item  We reject the null hypothesis at level $\alpha$ if the value of $Q$ exceeds the $1-\alpha$ quantile of the $\chi^2_{H-p-q}$ distribution, or obtain p-value less than $\alpha$. A small p-value (for instance, p-value $<$ .05) indicates the possibility of non-zero autocorrelation within the first $H$ lags. 
+  \item The Ljung-Box test is based on a statistic whose distribution is asymptotically (as h becomes large) chi-squared. As H gets large relative to n, though, the power of the test decreases to 0. Hence the desire to choose H large enough that the distribution is close to chi-squared but small enough to have useful power. 
+  \item $H$ is chosen somewhat arbitrarily greater than $p+q$. Recommended values are $\mbox{min}(n/5,10)$ for non-seasonal data and $\mbox{min}(n/5,2*m)$ for seasonal data, where $m$ is the period of seasonality (Rob J Hyndman and George Athanasopoulos: Forecasting: Principles and Practice).
+\end{itemize}
+
+ 
+\end{itemize}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+
+library(TSA)
+library(astsa)
+tsdiag(rec.mle,gof.lag=10)
+@
+\caption{Ljung-Box plot for fish recruitment data.}
+\label{fig:ARpacf1}
+\end{figure}
+
+\newpage
+\end{document}

@@ -1,0 +1,286 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newtheorem{exmp}{Example}[section]
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Seasonal ARMA and SARIMA models}
+\date{}
+\maketitle
+\section{Overview}
+
+Seasonality in a time series is a regular pattern of changes that repeats over $S$ time periods, where $S$ defines the number of time periods until the pattern repeats again. For example, there is seasonality in monthly data for which high values tend always to occur in some particular months and low values tend always to occur in other particular months. In this case, $S = 12$ (months per year) is the span of the periodic seasonal behavior. For quarterly data, $S = 4$ time periods per year.
+
+{\bf Seasonality:} \begin{itemize}
+  \item Seasonal means: the means of the time series exibihits seasonal pattern.
+  \item Seasonal autocorrelations: the means of the time series are assumed to be the same and the correlations have periodic seasonal bahavior.
+\end{itemize}
+
+\subsection{Seasonal ARMA model for seasonal autocorrelations}
+In a seasonal ARMA model, seasonal AR and MA terms predict $x_t$ using data values and errors at times with lags that are multiples of $S$ (the span of the seasonality).
+\begin{itemize}
+  \item With monthly data (and $S = 12$), a seasonal first order autoregressive model would use $x_{t-12}$ to predict $x_t$.  For instance, if we were selling cooling fans we might predict this August's sales using last August's sales.  (This relationship of predicting using last year's data would hold for any month of the year.)
+  \item A seasonal second order autoregressive model would use $x_{t-12}$ and $x_{t-24}$ to predict $x_t$.  Here we would predict this August's values from the past two Augusts.
+  \item A seasonal first order MA(1) model (with $S = 12$) would use $\omega_{t-12}$ as a predictor.  A seasonal second order MA(2) model would use $\omega_{t-12}$ and $\omega_{t-24}$.
+\end{itemize}
+
+\subsection{Differencing for seasonal means and trend}
+{\bf Differencing}: Almost by definition, it may be necessary to examine differenced data when we have seasonality.  Seasonality usually causes the series to be nonstationary because the average values at some particular times within the seasonal span (months, for example) may be different than the average values at other times.  For instance, our sales of cooling fans will always be higher in the summer months.
+
+\vspace{0.5in}
+\noindent{\bf Seasonal differencing}: is defined as a difference between a value and a value with lag that is a multiple of $S$.
+
+\begin{itemize}
+  \item With $S = 12$, which may occur with monthly data, a seasonal difference is \[(1-B^{12})x_t = x_t - x_{t-12}.\]
+The differences (from the previous year) may be about the same for each month of the year giving us a stationary series.
+\item With $S = 4$, which may occur with monthly data, a seasonal difference is \[(1-B^{4})x_t = x_t - x_{t-4}.\]
+Seasonal differencing removes seasonal trend and can also get rid of a seasonal random walk type of nonstationarity.
+\end{itemize}
+
+\vspace{0.5in}
+\noindent{\bf Nonseasonal differencing}:  If trend is present in the data, we may also need non-seasonal differencing.  Often (not always) a first difference (non-seasonal) will ``detrend'' the data.  That is, we use  $(1-B)x_t = x_t- x_{t-1}$ in the presence of trend.
+
+\vspace{1in}
+\noindent{\bf Differencing for seasonal means and trend}: When both seasonal means and trend are present, we may need to apply both a non-seasonal first difference and a seasonal difference. That is, we may need to examine the ACF and PACF of $(1-B^{12})(1-B)x_t = (x_t -x_{t-1}) - (x_{t-12}-x_{t-13}).$
+
+Removing trend doesn't mean that we have removed the dependency.  We may have removed the mean, $\mu_t$, part of which may include a periodic component.  In some ways we are breaking the dependency down into recent things that have happened and long-range things that have happened.
+
+\vspace{1in}
+
+{\bf Non-seasonal Behavior Will Still Matter}: with seasonal data, it is likely that short run non-seasonal components will still contribute to the model.  In the monthly sales of cooling fans mentioned above, for instance, sales in the previous month or two, along with the sales from the same month a year ago, may help predict this month's sales. We'll have to look at the ACF and PACF behavior over the first few lags (less than $S$) to assess what non-seasonal terms might work in the model.
+
+\vspace{1in}
+
+\noindent{\bf SARIMA models}: In a SARIMA model, we use differencing for seasonal means and trend, and use seasonal ARMA models for seasonal autocorrelations.
+
+\section{Pure seasonal ARMA models}
+
+Define operators 
+\[
+\Phi_P(B^s) = 1- \Phi_1B^s-\Phi_2B^{2s}-\ldots -\Phi_1B^{Ps}
+\]
+and
+\[
+\Theta_Q(B^s) = 1+ \Theta_1B^s+\Theta_2B^{2s}+\ldots +\Theta_1B^{Qs}
+\]
+are the {\bf seasonal autoregressive operator} and the {\bf season moving average operator} of orders $P$ and $Q$ respectively with season period $s$.
+
+A pure seasonal autoregressive ovine average model, $ARMA(P,Q)_s$, takes the form \[\Phi_P(B^s)x_t=\Theta_Q(B^s)w_t\]
+
+\begin{exmp}Consider $ARMA(1,1)_{12}$
+\end{exmp}
+
+\vspace{3in}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+par(mfrow=c(2,2))
+y = ARMAacf(ar = c(rep(0,11),0.8), lag.max = 50)
+y = y[2:51]
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Autocorrelation", main = "Population ACF")
+abline(h = 0)
+y = ARMAacf(ar = c(rep(0,11),0.8), lag.max = 50, pacf=TRUE)
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Partial autocorrelation", main = "Population PACF")
+abline(h = 0)
+seasonal.ar1.sim <- arima.sim(list(order = c(12,0,0), ar = c(rep(0,11),0.9)), n = 200)
+acf(seasonal.ar1.sim,main="Sample ACF",lag.max=50)
+pacf(seasonal.ar1.sim,main="Sample PACF",lag.max=50)
+@
+\caption{Top panels: theorectical ACF and PACF for $ARMA(1,0)_{12}$; bottom panels: sample ACF and PACF for simulated $ARMA(1,0)_{12}$ series .}
+\label{fig:ARMA10}
+\end{figure}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+par(mfrow=c(2,2))
+y = ARMAacf(ma = c(rep(0,11),0.9), lag.max = 50)
+y = y[2:51]
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Autocorrelation", main = "Population ACF")
+abline(h = 0)
+y = ARMAacf(ma = c(rep(0,11),0.9), lag.max = 50, pacf=TRUE)
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Partial autocorrelation", main = "Population PACF")
+abline(h = 0)
+seasonal.ma1.sim <- arima.sim(list(order = c(0,0,12), ma = c(rep(0,11),0.9)), n = 200)
+acf(seasonal.ma1.sim,main="Sample ACF",lag.max=50)
+pacf(seasonal.ma1.sim,main="Sample PACF",lag.max=50)
+@
+\caption{Top panels: theorectical ACF and PACF for $ARMA(0,1)_{12}$; bottom panels: sample ACF and PACF for simulated $ARMA(0,1)_{12}$ series .}
+\label{fig:ARMA01}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+par(mfrow=c(2,1))
+plot(seasonal.ma1.sim,ylab=expression(Y[t]),xlab="Time",type="o",main="ARMA(0,1)_12")
+plot(seasonal.ar1.sim,ylab=expression(Y[t]),xlab="Time",type="o",main="ARMA(1,0)_12")
+
+@
+\caption{Top panel: simulated data from $ARMA(0,1)_{12}$; bottom panel: simulated data from $ARMA(1,0)_{12}$ series.}
+\label{fig:ARMAdata}
+\end{figure}
+
+
+\begin{tabular}{cccc}
+\hline
+\hline
+ & $AR(P)_s$& $MA(Q)_s$ & $ARMA(P,Q)_s$\\
+\hline
+ACF* & Tails of at lags $ks$ & Cuts off after lag $Qs$ & Tails off at lags $ks$\\
+PACF* & Cuts off after lags $Ps$ & Tails off at lags $ks$ & Tails off at lags $ks$\\
+\hline
+\hline
+\end{tabular}
+\mbox{}\\
+\mbox{}\\
+$k=1,2,\ldots$\\
+*: The values at nonseasonal lags $h\ne ks$, for $k=1,2,\ldots,$ are zero
+
+
+\section{Multilicative ARMA models}
+The Multiplicative {\bf seasonal autoregressive moving average model, denoted by $ARMA(p,q) \times (P,Q)_s$} is given by: 
+\[
+\Phi_P(B^s)\phi(B)x_t =  \Theta_Q(B^s)\theta(B)w_t
+\]
+where $\omega_t$ is the usual Gaussian white noise process. 
+
+\begin{exmp}: $ARMA(0,1) \times (1,0)_{12}$
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}: $ARMA(0,1) \times (0,1)_{12}$
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}: $ARMA(1,0) \times (1,0)_{12}$
+\end{exmp}
+\vspace*{3in}
+
+\begin{exmp}: $ARMA(1,0) \times (0,1)_{12}$
+\end{exmp}
+\vspace*{3in}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+par(mfrow=c(2,2))
+par(mfrow=c(2,2))
+y = acf.ma.ma = ARMAacf(ma=c(-0.5,rep(0,10),-0.9,0.45),lag.max=50)
+y = y[2:51]
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Autocorrelation", main = "ARMA(0,1)*(0,1)_12 ACF")
+abline(h=0)
+pacf.ma.ma = ARMAacf(ma=c(-0.5,rep(0,10),-0.9,0.45),lag.max=50,pacf=T)
+plot(pacf.ma.ma,type='h',xlab="k",ylab="PACF",main = "ARMA(0,1)*(0,1)_12 PACF")
+
+
+abline(h=0)
+y = acf.ma.ar = ARMAacf(ar=c(rep(0,11),0.9),ma=-0.5,lag.max=50)
+y = y[2:51]
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Autocorrelation", main = "ARMA(0,1)*(1,0)_12 ACF")
+abline(h=0)
+pacf.ma.ar = ARMAacf(ar=c(rep(0,11),0.9),ma=-0.5,lag.max=50,pacf=T)
+plot(pacf.ma.ar,type='h',xlab="k",ylab="PACF",main = "ARMA(0,1)*(1,0)_12 PACF")
+abline(h=0)
+@
+\caption{Top panels: theorectical ACF and PACF $ARMA(p,q)\times (P,Q)_{12}$.}
+\label{fig:ARMA02}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+par(mfrow=c(2,2))
+par(mfrow=c(2,2))
+y = acf.ma.ma = ARMAacf(ar=0.5,ma=c(0,rep(0,10),-0.5),lag.max=50)
+y = y[2:51]
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Autocorrelation", main = "ARMA(1,0)*(0,1)_12 ACF")
+abline(h=0)
+pacf.ma.ma = ARMAacf(ar=0.5,ma=c(0,rep(0,10),-0.5),lag.max=50,pacf=T)
+plot(pacf.ma.ma,type='h',xlab="k",ylab="PACF",main = "ARMA(1,0)*(0,1)_12 PACF")
+
+
+abline(h=0)
+y = acf.ma.ar = ARMAacf(ar=c(0.5,rep(0,10),0.9,-0.45),lag.max=50)
+y = y[2:51]
+plot(y, x = 1:50, type = "h", ylim = c(-1,1), xlab = "k",
+ylab = "Autocorrelation", main = "ARMA(1,0)*(1,0)_12 ACF")
+abline(h=0)
+pacf.ma.ar = ARMAacf(ar=c(0.5,rep(0,10),0.9,-0.45),lag.max=50,pacf=T)
+plot(pacf.ma.ar,type='h',xlab="k",ylab="PACF",main = "ARMA(1,0)*(1,0)_12 PACF")
+abline(h=0)
+@
+\caption{Top panels: theorectical ACF and PACF $ARMA(p,q)\times (P,Q)_{12}$.}
+\label{fig:ARMA02}
+\end{figure}
+
+\section{SARIMA models}
+Seasonal nonstationarity can occur. The Multiplicative {\bf seasonal autoregressive integrated moving average (SARIMA)} model is given by: 
+\[
+\Phi_P(B^s)\phi(B)\bigtriangledown_s^D\bigtriangledown^dx_t = \delta + \Theta_Q(B^s)\theta(B)w_t
+\]
+where $w_t$ is the usual Gaussian white noise process. This general model is denoted as $ARMA(p,d,q)\times (P,D,Q)$. Assumptions of stationarity and invertibility will apply. The $D$ denotes a seasonal difference included with 
+\[
+\bigtriangledown_s^D = \left(1-B^s\right)^{D}
+\]
+
+\section{Steps for building SARIMA}
+\begin{itemize}
+ \item Step 1: Do a time series plot of the data.  Examine it for features such as trend and seasonality.  You'll know that you've gathered seasonal data (months, quarters, etc,) so look at the pattern across those time units (months, etc.) to see if there is indeed a seasonal pattern.
+\item Step 2: Do any necessary differencing. The general guidelines are:
+\begin{itemize}
+  \item If there is linear trend and no obvious seasonality, then take a first difference.  If there is a curved trend, consider a transformation of the data before differencing.
+\item If there is both trend and seasonality, apply a seasonal difference to the data and then re-evaluate the trend.  If a trend remains, then take first differences.  For instance, if the series is called x, the commands in R would be: diff(x,12).
+\item If there is neither obvious trend nor seasonality, don't take any differences.
+
+\end{itemize}
+\item Step 3:  Examine the ACF and PACF of the differenced data (if differencing is necessary). We're using this information to determine possible models.  This can be tricky going involving some (educated) guessing.  Some basic guidance:\begin{itemize}
+  \item Non-seasonal terms:  Examine the early lags (1, 2, 3, $\dots$) to judge non-seasonal terms.  Spikes in the ACF (at low lags) indicate non-seasonal MA terms.  Spikes in the PACF (at low lags) indicated possible non-seasonal AR terms.
+  \item Seasonal terms:  Examine the patterns across lags that are multiples of $S$. For example, for monthly data, look at lags 12, 24, 36, and so on (probably won't need to look at much more than the first two or three seasonal multiples).  Judge the ACF and PACF at the seasonal lags in the same way you do for the earlier lags.
+\end{itemize}
+\item Step 4:  Estimate the model(s) that might be reasonable on the basis of Step 3.  Don't forget to include any differencing that you did before looking at the ACF and PACF.  In the software, specify the original series as the data and then indicate the desired differencing when specifying parameters in the arima command that you're using.
+\item Step 5:  Examine the residuals (with ACF, Ljung-Box test, and any other means) to see if the model seems good.  Compare AIC or BIC values if you tried several models. If things don't look good here, it's back to Step 3 (or maybe even Step 2).
+\end{itemize}
+
+\section{Steps for building dynamic seasonal ARMA models}
+\begin{itemize}
+ \item Step 1: Do a time series plot of the data. 
+\item Step 2: Do a linear regression for the seasonal means and trend. 
+\item Step 3:  Examine the ACF and PACF of the residuals from Step 2. 
+\item Step 4:  Build a joint model of the seasonal means and trend with the seasonal ARMA models. Estimate the model(s) that might be reasonable on the basis of Step 3.  
+\item Step 5:  Examine the residuals (with ACF, Ljung-Box test, and any other means) to see if the model seems good.  Compare AIC or BIC values if you tried several models. If things don't look good here, it's back to Step 3 (or maybe even Step 2).
+\end{itemize}
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.length=10,fig.align='center'>>=
+
+library(astsa)
+data(prodn)
+prodn_r = diff(log(prodn))
+par(mfrow=c(2,2))
+plot.ts(prodn,xlab="Production series")
+plot.ts(prodn_r,xlab="Log of first differenced production series")
+
+acf(ts(prodn_r),lag.max=50)
+pacf(ts(prodn_r),lag.max=50)
+@
+\caption{Production series on the top left panel, log of the first differnced production series on the top right panel, sample ACF and sample PACF of the transformed series on the bottom panels.}
+\label{fig:ARpacf1}
+\end{figure}
+
+\end{document}

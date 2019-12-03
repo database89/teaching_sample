@@ -1,0 +1,359 @@
+\documentclass{article}
+\usepackage{amsmath}
+\newtheorem{exmp}{Example}[section]
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Model specification}
+\date{}
+\maketitle
+\section{Pre-selection of time series models}
+Previously we discussed what to look for in time series using linear regression skills: possible trend, seasonality, constant variance or nonconstant variance.
+\begin{itemize}
+  \item If there's an obvious upward or downward linear trend, besides using linear regression to model the trend, a first difference may be needed.  A quadratic trend might need a 2nd order difference (as described above).  We rarely want to go much beyond two.  In those cases, we might want to think about things like smoothing, which we will cover later in the course.  Over-differencing can cause us to introduce unnecessary levels of dependency (difference white noise to obtain a MA(1)-difference again to obtain a MA(2), etc.)
+  \item For data with a curved upward trend accompanied by increasing variance, you should consider transforming the series with either a logarithm or a square root.
+  \item Nonconstant variance in a series with no trend may have to be addressed with something like an ARCH model which includes a model for changing variation over time.  We'll cover ARCH models later in the course.
+\end{itemize}
+
+\section{Use ACF patterns to identify an MA model}
+Summary:
+\begin{itemize}
+  \item MA models have theoretical ACFs with non-zero values at the MA terms in the model and zero values elsewhere. 
+  \item AR and ARMA models have theorectical ACF will taper to zero in some fashion. 
+  \item Confidence bands under MA assumption can further help us identify a possible order of the model.
+\end{itemize}
+
+\vspace{0.2in}
+{\bf Large sample test} for $H_0 : MA(q)$ process is appropriate versus $H_1 : MA(q) $process is not appropriate.
+
+If $H_0$ is true, large-sample test statistic
+\[Z^*=\frac{r_{q+1}}{\sqrt{\frac{1}{n} \left ( 1+2 \sum_{j=1}^q r_j^2\right ) }} \sim AN(0,1)\] Therefore, a level $1-\alpha$ decision rule is to reject $H_0$ in favor of $H_1$ when $|Z^*| > z_{\alpha/2}$,
+where $z_{\alpha/2}$ is the upper $\alpha/2$ quantile from the $N(0,1)$ distribution. 
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=6,fig.align='center'>>=
+ma1=arima.sim(list(order=c(0,0,2), ma=c(0.5,-0.5)), n=100)   
+par(mfrow=c(1,2))
+acf(ma1, 10,main="white noise bounds")
+acf(ma1, 10, ci.type="ma", main="ma bounds")
+
+@
+\caption{Sample ACF plot for data simulated from a MA$(2)$ model with white noise and MA bounds.}
+\label{fig:ARpacf2}
+\end{figure}
+
+\vspace{0.2in}
+\noindent {\bf Asymptotic results of sample ACF}: for the observed series $x_1,\dots, x_n$, the sample or estimated autocorrelation function is \[r_k=\frac{ \sum_{t=1}^{n-h}(x_{t+h}-\bar{x})(x_t-\bar{x})}{\sum_{t=1}^n(x_t-\bar{x})^2}.\]
+For any stationary ARMA model, and fixed $m$, the joint distribution of \[\sqrt{n}(r_1-\rho_1),\sqrt{n}(r_2-\rho_2),\dots,\sqrt{n}(r_m-\rho_m)\] approaches, as $n \rightarrow \infty$, a joint normal distribution with zero means, variance $c_{jj}$, and covariance $c_{ij}$, where \[c_{ij}=\sum_{k=-\infty}^{\infty} (\rho_{k+i}\rho_{k+j}+\rho_{k-i}\rho_{k+j}-2\rho_{i}\rho_k\rho_{k+j}-2\rho_j\rho_k\rho_{k+i}+2\rho_i\rho_j\rho_k^2)\]
+
+Based on the above expression, the sample autocorrelations can be highly correlated and that he standard deviation for $r_k$ is larger for $k>1$ than for $k=1$.
+\begin{itemize}
+\item White noise: for a white noise process, the formula for $c_{kk}$ simplifies considerably because nearly all the terms in the sum above are zero. For large n,
+\[r_k \sim AN(0, \frac{1}{n})\]
+for $k=1,2,\dots$. This explains why $\pm 2/\sqrt{n}$ serve as approximate margin of error bounds for $r_k$. Values of $r_k$ outside these bounds would be ``unusual'' under the white noise model assumption.
+\item AR(1): for a stationary AR(1) process  $x_t = \phi x_{t-1} + w_t$, the formula for $c_{kk}$ also reduces considerably. For large $n$, \[r_k \sim AN(\rho_k, \sigma^2_{r_k}) \] where
+ \[\sigma^2_{r_k}=\frac{1}{n} \left[ \frac{(1+\phi^2)(1-\phi^{2k})}{1-\phi^2}-2k\phi^{2k}\right]\]  and $\rho_k=\phi_k$.
+\item MA(q):  for a general MA(q) process, the large sample resut suggests \[r_{q+k} \sim AN \left [0, \frac{1}{n} \left ( 1+2 \sum_{j=1}^q \rho_j^2\right )\right] \] for $k=1,2,\dots$
+\end{itemize} 
+
+
+
+
+
+\section{Partial autocorrelation function (PACF)}
+Summary:
+\begin{itemize}
+  \item AR models have theoretical ACFs with non-zero values at the AR terms in the model and zero values elsewhere. 
+  \item MA and ARMA models have theorectical PACF will taper to zero in some fashion. 
+  \item Confidence bands under AR assumption can further help us identify a possible order of the model.
+  \item You might also consider examining plots of $x_t$ versus various lags of $x_t$.
+\end{itemize}
+\subsection{Partial correlation in linear regression}
+\begin{itemize}
+  \item In general, a partial correlation is a conditional correlation.
+\item It is the correlation between two variables under the assumption that we know and take into account the values of some other set of variables.
+\item For instance, consider a regression context in which $y$ = response variable and $x_1$, $x_2$, and $x_3$ are predictor variables.  The partial correlation between $y$ and $x_3$ is the correlation between the variables determined taking into account how both $y$ and $x_3$ are related to $x_1$ and $x_2$.
+\item In regression, this partial correlation could be found by correlating the residuals from two different regressions:  (1) Regression in which we predict $y$ from $x_1$ and $x_2$, (2) regression in which we predict $x_3$ from $x_1$ and $x_2$.  Basically, we correlate the ``parts" of $y$ and $x_3$ that are not predicted by $x_1$ and $x_2$.
+\item More formally, we can define the partial correlation just described as
+\[\frac{\mbox{Covariance}(y,x_3|x_1,x_2)}{\mbox{std.Deviation}(y|x_1,x_2) \mbox{std.Deviation}(x_3|x_1,x_2)}\]
+\end{itemize}
+
+\subsection{Partial autocorrelation in time series}
+\begin{itemize}
+\item For a time series with Normality assumption of the error process, the partial autocorrelation between $x_t$ and $x_{t-h}$ is defined as the conditional correlation between $x_t$ and $x_{t-h}$, conditional on $x_{t-h+1}, \dots , x_{t-1}$, the set of observations that come between the time points $t$ and $t-h$.
+\item The $1^{st}$ order partial autocorrelation is defined to equal the $1^{st}$ order autocorrelation.
+\item The $2^{nd}$ order (lag) partial autocorrelation is 
+\[\frac{\mbox{Covariance}(x_t,x_{t-2}|x_{t-1})}{\mbox{std.Deviation}(x_t|x_{t-1}) \mbox{std.Deviation}(x_{t-2}|x_{t-1})}\]
+This is the correlation between values two time periods apart conditional on knowledge of the value in between. (By the way, the two variances in the denominator will equal each other in a stationary series.)
+\item The $3^{rd}$ order (lag) partial autocorrelation is
+\[\frac{\mbox{Covariance}(x_t,x_{t-3}|x_{t-1},x_{t-2})}{\mbox{std.Deviation}(x_t|x_{t-1},x_{t-2}) \mbox{std.Deviation}(x_{t-3}|x_{t-1},x_{t-2})}\]
+\end{itemize}
+
+\subsection{Use PACF patterns to identify an AR model}
+
+For an AR model, the theoretical PACF ``cuts off" past the order of the model.  The phrase ``cuts off" means that in theory the partial autocorrelations are equal to $0$ beyond that point.  Put another way, the number of non-zero partial autocorrelations gives the order of the AR model.  By the ``order of the model" we mean the most extreme lag of $x$ that is used as a predictor.
+
+\noindent For an MA model or an ARMA model, the theorectical PACF ``tails off''. The phrase ``tails off" means that in theory the partial autocorrelations approach zero gradually at large lags.
+
+{\bf A rule of thumb for identifying an AR model}: Under the hypothesis that an AR($p$) is correct, the sample partial autocorrelations at lags greater than $p$ are approximately normally distributed with zero means and variances $1/n$ ($n$ is sample size). Thus, for $h>p$, $\pm 2/\sqrt{n}$ can be used as critical limits on $\hat{\phi}_{hh}$ to test the null hypothesis that $\phi_{hh}=0$. To see if AR(p) is an appropriate model, we may need to test for all $h>p$, then multiple comparison adjust is needed, i.e. use $z_(\alpha/2m)/\sqrt{n}$ for $m$ tests.
+
+
+\begin{exmp}
+In this example, we plot the theorectical PACF from AR(1), AR(2), AR(3), and AR(4). 
+\end{exmp}
+
+<<test1>>=
+library(astsa)
+
+y1 = ARMAacf(ar=c(-0.5),pacf=TRUE, lag.max = 10);
+
+y2 = ARMAacf(ar=c(1,-0.5),pacf=TRUE, lag.max = 10);
+Mod(polyroot(c(1,-1,0.5)))
+
+y3 = ARMAacf(ar=c(1,-0.5,0.3),pacf=TRUE, lag.max = 10);
+Mod(polyroot(c(1,-1,0.5,-0.3)))
+
+y4= ARMAacf(ar=c(1,-0.5,0.5,-0.5),pacf=TRUE, lag.max = 10);
+Mod(polyroot(c(1,-1,0.5,-0.5,0.5)))
+
+y1
+y2
+y3
+y4
+@
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+
+par(mfrow=c(2,2))
+plot(y1, type = "h", ylim = c(-1,1), xlab = "Lag",
+      ylab = "Partial Autocorrelation")
+plot(y2, type = "h", ylim = c(-1,1), xlab = "Lag",
+      ylab = "Partial Autocorrelation")
+plot(y3, type = "h", ylim = c(-1,1), xlab = "Lag",
+      ylab = "Partial Autocorrelation")
+plot(y4, type = "h", ylim = c(-1,1), xlab = "Lag",
+      ylab = "Partial Autocorrelation")
+@
+\caption{Theorectical PACF plot for AR$(p)$ models.}
+\label{fig:ARpacf1}
+\end{figure}
+
+\begin{exmp}
+In this example, we simuate time series from AR(1), AR(2), AR(3), and AR(4). For each simulated time seres we calculate its pacf.
+\end{exmp}
+
+<<simulate AR series>>=
+library(astsa)
+set.seed(53)
+y1 = arima.sim(n = 300, list(order=c(1,0,0),ar=c(-0.5)),sd = sqrt(0.2))
+y2 = arima.sim(n = 300, list(order=c(2,0,0),ar=c(1,-0.5)),sd = sqrt(0.2))
+y3 = arima.sim(n = 300, list(order=c(3,0,0),ar=c(1,-0.5,0.3)),sd = sqrt(0.2))
+y4 = arima.sim(n = 300, list(order=c(4,0,0),ar=c(1,-0.5,0.5,-0.5)),sd = sqrt(0.2))
+@
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+
+par(mfrow=c(2,2))
+pacf(y1)
+pacf(y2)
+pacf(y3)
+pacf(y4)
+@
+\caption{PACF plot for data simulated from AR$(p)$ models.}
+\label{fig:ARpacf1}
+\end{figure}
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=4,fig.align='center'>>=
+y5 = ARMAacf(ma=c(-0.5),pacf=TRUE, lag.max = 15);
+
+y6 = ARMAacf(ma=c(1,-0.5),pacf=TRUE, lag.max = 15);
+y5
+y6
+y5 = arima.sim(n = 300, list(order=c(0,0,1),ma=c(-0.5)),sd = sqrt(0.2))
+y6 = arima.sim(n = 300, list(order=c(0,0,2),ma=c(1,-0.5)),sd = sqrt(0.2))
+
+par(mfrow=c(2,1))
+pacf(y5)
+pacf(y6)
+
+@
+\caption{PACF plot for data simulated from MA$(q)$ models.}
+\label{fig:ARpacf2}
+\end{figure}
+
+\newpage
+\subsection{Theorectical note of PACF}
+\begin{exmp} PACF of AR(1) model
+\end{exmp}
+
+\vspace*{2in}
+
+\begin{exmp} PACF of AR(2) model
+\end{exmp}
+
+\vspace*{3in}
+
+\begin{exmp} PACF of MA(1) model
+\end{exmp}
+
+\vspace*{2in}
+
+{\bf PACF of a zero-mean stationary model without Normality assumption}: let $x_{h}^{h-1}$ denote mean of the regression of $x_{h}$ on $\left\{x_{h-1},x_{h-2}, \ldots, x_{1}\right\}$. We write this as:
+\begin{eqnarray}
+x_{h}^{h-1}= \beta_1x_{h-1}+\beta_2x_{h-2}+\ldots+\beta_{h-1}x_{1} \label {eqn::reg}
+\end{eqnarray}
+where $\beta_1,\dots, \beta_{h-1}$ are constants that minimize $E[x_h-(\beta_1x_{h-1}+\beta_2x_{h-2}+\ldots+\beta_{h-1}x_{1})]^2.$
+Let $x_0^{h-1}$ denote the mean of the regression of $x_0$ on $\{x_1,x_2,\dots, x_{h-1}\}$, then
+\[
+x_{0}^{h-1}= \beta_1x_{1}+\beta_2x_{2}+\ldots+\beta_{h-1}x_{h-1}
+\]
+The coefficients $\beta_1,\dots, \beta_{h-1}$ can to proved to be the same as in (\ref{eqn::reg}).
+
+The partial autocorrelation function (PACF) of a stationary time sereis, $x_t$, denoted $\phi_{hh}$, for $h=1,2,\ldots$ is
+\[
+\phi_{11}={\rm corr}\left[x_{1},x_0\right] = \rho(1)
+\]
+and 
+\[
+\phi_{hh}={\rm corr}\left[x_{h}-x_{h}^{h-1},x_{0}-x_{0}^{h-1}\right]
+\]
+\begin{itemize}
+\item With regards to $x_h$ and $x_0$ , the quantities $x_{h}^{h-1}$ and $x_{0}^{h-1}$ are linear functions
+ of the intervening variables $\{x_1,x_2,\dots, x_{h-1}\}$.
+
+\item The quantities $x_{h}-x_{h}^{h-1}$ and $x_{0}-x_{0}^{h-1}$ are called the prediction errors. 
+The PACF at lag $h$ is defined to be the correlation between these errors.
+\end{itemize}
+
+
+As a summary,
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{c|ccc}
+\hline
+\hline
+& $AR(p)$ & $MA(q)$ & $ARMA(p,q)$\\
+\hline
+ACF & Tails Off & Cuts off after lag $q$ & Tails off\\
+PACF& Cuts off after lag $p$ & Tails off & Tails off\\
+\hline
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{itemize}
+  \item If the ACF and PACF do not tail off, but instead have values that stay close to 1 over many lags, the series is non-stationary and differencing will be needed.  Try a first difference and then look at the ACF and PACF of the differenced data.
+\item If all autocorrelations are non-significant, then the series is random (white noise; the ordering matters, but the data are independent and identically distributed.)  You're done at that point.
+\item If you have taken first differences and all autocorrelations are non-significant, then the series is called a random walk and you are done.
+\end{itemize}
+
+\section{Extended autocorrelation function}
+
+For an ARMA mode, its theoretical ACF and PACF have infinitely many nonzero values, making it difficult to identify the order of ARMA models. The following we outline a method called extended autocorrelation method.
+
+{\bf EACF}: Given $k$ for order of the autoregressive component of the ARMA model, consider the following set of linear regressions
+\begin{itemize}
+
+\item Perform the first linear regression of $x_t=\phi_1^{(0)} x_{t-1}+\phi_2^{(0)} x_{t-2}+\dots+\phi_k^{(0)} x_{t-k}+e_{t}$. Obtain residuals $\hat{e}_{t}^{(0)}, t=p+1,\dots,n$. 
+\item Perform the second linear regression of $x_t=\phi_1^{(1)}x_{t-1}+\phi_2^{(1)}x_{t-2}+\dots+\phi_k^{(2)}x_{t-k}+\beta_1^{(1)}\hat{e}_{t-1}^{(0)}+e_{t}$. Obtain residuals $\hat{e}_{t}^{(1)}, t=p+2,\dots,n$. 
+
+\item Perform the third linear regression of $x_t=\phi_1^{(2)}x_{t-1}+\phi_2^{(2)}x_{t-2}+\dots+\phi_k^{(2)}x_{t-k}+\beta_1^{(2)}\hat{e}_{t-1}^{(1)}+\beta_2^{(2)}\hat{e}_{t-2}^{(0)}+e_{t}^{(2)}, t=p+3,\dots,n$. Obtain residuals $\hat{e}_{t}^{(2)}, t=p+2,\dots,n$. 
+\item $\dots$
+\end{itemize}
+Use the estimated coefficients to define 
+\[\widehat{W}_{t,k,j}=x_t-\hat{\phi}_1^{(j)}x_{t-1}-\hat{\phi}_2^{(j)}x_{t-2}-\dots-\hat{\phi}_k^{(j)}x_{t-k}.\]
+
+\vspace{0.5in}
+\noindent Define $\hat{\rho}_{kj}^{(m)}, m=1,2,\dots$ as the sample autocorrelation function for $\widehat{W}_{t,k,j}$. These are referred to be the extended sample autocorrelations. If ARMA($p,q$) is appropriate,  \begin{itemize}
+\item For $k=p$ and $j\geq q$, $\widehat{W}_{t,k,j}$ is approximately an MA(q) model.
+\item For $k>p$, an overfitting problem occurs and this increase the MA order by the minimum of $k-p$ and $j-q$.
+\end{itemize}
+{\bf EACF table:} Element in the $k$th row and $j$th column equal to the symbol $X$ if the lag $j+1$ sample correlation of $\widehat{W}_{t,k,j}$ is significantly different from 0. That is, the value is outside its 95\% confidence interval $[-1.96/\sqrt{n-k-j},1.96/\sqrt{n-k-j}]$.
+<<eacf>>=
+library(TSA)
+set.seed(53)
+AR2=arima.sim(list(order=c(2,0,0), ar=c(1,-0.5)), n=5000) 
+ma2=arima.sim(list(order=c(0,0,2), ma=c(0.5,-1)), n=5000)  
+ARMA22 = arima.sim(list(order=c(2,0,2),ar=c(1,-0.5), ma=c(0.5,-1)), n=5000) 
+eacf(AR2)
+eacf(ma2)
+eacf(ARMA22)
+@
+\subsection{Nonstationarity test}
+\begin{itemize}
+\item Visually observing the data: if there is an obvious trend, we may consider detrending first.
+  \item Visually observing sample ACF: if sample ACF shows very slow decay, we may suspect that the time series is non-stationary.
+  \item Dickey-Fuller unit-root test
+\end{itemize}
+
+
+Suppose $\{x_t\}$ is an AR(k) process: $x_t=\phi_1x_{t-1}+\phi_2x_{t-2}+\dots+\phi_k x_{t-k}$. Consider the model $y_t=\mu+\alpha y_{t-1}+x_t$. If $\alpha=1$, then the process $y_t$ is non stationary but becomes stationary after first differencing. 
+
+\begin{itemize}
+\item Null hypothesis: $\alpha=1$ and $y_t$ is non stationary but becomes stationary after first differencing. 
+
+\item Alternative hypothesis: $-1<\alpha<1$ and $y_t$ is stationary with unknown mean. We have  \[(1-\phi_1B-\dots-\phi_kB^k)(1-\alpha B) y_t=\mu^{**}+e_t\]  with the coefficient for $y_{t-1}$ less than zero.
+\end{itemize}
+
+
+The ADF procedure we have described, more precisely, tests for difference nonstationarity. Because of this, the ADF test outlined here may not have sufficient power to reject $H_0$ when the process is truly stationary. In addition, the test may reject $H_0$ incorrectly because a different form of nonstationarity is present (one that can not be overcome merely by taking first differences). 
+
+
+<<eacf>>=
+set.seed(53)
+library(tseries)
+ARI1=arima.sim(list(order=c(2,1,0), ar=c(1,-0.5)), n=500) 
+adf.test(ARI1,alternative="stationary")
+
+AR1=arima.sim(list(order=c(2,0,0), ar=c(1,-0.5)), n=500) 
+adf.test(AR1,alternative="stationary")
+@
+
+
+\section{Model selection criteria}
+
+A number of other approaches to model specification of the orders, including AIC, BIC. The criterion says to select the model that minimizes AIC or BIC. 
+
+The {\bf Akaike's Information Criterion (AIC)} says to select the
+ARMA(p, q) model which minimizes
+\[AIC = -2ln L + 2k\]
+where $lnL$ is the natural logarithm of the maximized likelihood function (computed under a distributional assumption for $x_1, \dots, x_n$) and k is the number of parameters in the model (excluding the white noise variance). In a stationary no-intercept $ARMA(p,q)$ model, there are $k = p + q$ parameters.
+
+\begin{itemize}
+\item The likelihood function gives (loosely speaking) the ``probability of the data,'' so we would like for it to be as large as possible. This is equivalent to wanting $-2 ln L$ to be as small as possible.
+\item The $2k$ term serves as a penalty, namely, we do not want models with too many parameters (adhering to the Principle of Parsimony).
+\item The AIC is an estimator of the expected Kullback-Leibler divergence, which measures the closeness of a candidate model to the truth. The smaller this diver- gence, the better the model.
+\item The AIC is used more generally for model selection in statistics (not just in the analysis of time series data). Herein, we restrict attention to its use in selecting candidate stationary $ARMA(p, q)$ models.
+\end{itemize}
+
+The {\bf Bayesian Information Criterion (BIC)} says to select the $ARMA(p, q)$ model which minimizes
+\[BIC = -2lnL+k ln n,\]
+where $ln L$ is the natural logarithm of the maximized likelihood function and k is the number of parameters in the model (excluding the white noise variance). In a stationary no-intercept $ARMA(p,q)$ model, there are $k = p + q$ parameters.
+
+Both AIC and BIC require the maximization of a log likelihood function (we assume normality). When compared to AIC, BIC offers a stiffer penalty for over-parameterized models since $\mbox{ln} n$ will often exceed 2.
+
+Another problem is to find the subset of nonzero coefficients of an ARMA model with sufficiently high ARMA orders. For example, the model \[x_t=0.8x_{t-12}+w_t+0.7w_{t-12}\] is a subset of ARMA(12,12) model useful for modeling some monthly seasonal time series. It is prudent to examine a few best subset ARMA models.
+
+
+
+<<BIC>>=
+library(TSA)
+arma2=arima.sim(list(order=c(2,0,2), ar=c(1,-0.25), ma=c(0.5,-1)), n=600)   
+subset=armasubsets(y=arma2,nar=3,nma=3,y.name='test',ar.method='ols')
+@
+
+
+\begin{figure}
+<<eval=TRUE,fig=TRUE,echo=TRUE,fig.width=6,fig.align='center'>>=
+plot(subset)
+@
+\caption{Model selection of a simulated data set from $arima.sim(list(order=c(2,0,2), ar=c(1,-0.25), ma=c(0.5,-1)), n=600)$.}
+\label{fig:BIC}
+\end{figure}
+
+
+
+\end{document}
